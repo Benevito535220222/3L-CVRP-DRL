@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3L-CVRP DRL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #020617; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+        body {
+            background-color: #020617;
+            color: #f1f5f9;
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        input, select {
+            background-color: #0f172a !important;
+            border-color: #334155 !important;
+            color: #f8fafc !important;
+        }
+
+        input:focus {
+            border-color: #3b82f6 !important;
+        }
+
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
+        .zoom-container {
+            transform: scale(0.8);
+            transform-origin: top;
+            width: 100%;
+            margin-bottom: -17%; 
+            float: left; 
+        }
+
+        .anti-zoom {
+            zoom: 0.8; 
+        }
+
+        .wrapper-clipper {
+            width: 100%;
+            overflow: hidden; 
+            display: block;
+        }
+
+        .lang-btn {
+            opacity: 0.5;
+            filter: grayscale(80%);
+            transition: all 0.3s ease;
+        }
+
+        .lang-btn.active-lang {
+            opacity: 1 !important; 
+            filter: grayscale(0%) !important; 
+            transform: scale(1.05); 
+        }
+
+        #lang-en.active-lang { border-color: rgba(59, 130, 246, 0.8); background-color: rgba(30, 41, 59, 0.9); }
+        #lang-id.active-lang { border-color: rgba(239, 68, 68, 0.8); background-color: rgba(30, 41, 59, 0.9); }
+
+        .active-lang span { color: white !important; }
+
+        .lang-btn:hover {
+            opacity: 0.9;
+            filter: grayscale(20%);
+        }
+    </style>
+</head>
+
+<body class="font-sans antialiased">
+
+    <div class="fixed top-8 right-8 z-[9999] flex flex-col items-end gap-3 anti-zoom">
+        <div class="mr-2">
+            <span data-key="change-lang" class="text-[14px] font-bold text-slate-500 uppercase tracking-[0.2em] drop-shadow-md">Ubah Bahasa</span>
+        </div>
+
+        <div class="flex flex-col gap-3">
+            <button id="lang-en" onclick="updateLanguage('en')" 
+                    class="lang-btn group flex items-center gap-3 bg-slate-900/90 hover:bg-slate-800 p-2 pr-4 rounded-full border border-white/10 backdrop-blur-md shadow-2xl transition-all duration-300 hover:border-blue-500/50">
+                <div class="w-8 h-8 rounded-full overflow-hidden border border-white/20">
+                    <img src="https://flagcdn.com/w80/gb.png" alt="English" class="w-full h-full object-cover">
+                </div>
+                <span class="text-[12px] font-bold text-slate-400 group-hover:text-white uppercase tracking-widest">EN</span>
+            </button>
+
+            <button id="lang-id" onclick="updateLanguage('id')" 
+                    class="lang-btn group flex items-center gap-3 bg-slate-900/90 hover:bg-slate-800 p-2 pr-4 rounded-full border border-white/10 backdrop-blur-md shadow-2xl transition-all duration-300 hover:border-red-500/50">
+                <div class="w-8 h-8 rounded-full overflow-hidden border border-white/20">
+                    <img src="https://flagcdn.com/w80/id.png" alt="Indonesia" class="w-full h-full object-cover">
+                </div>
+                <span class="text-[12px] font-bold text-slate-400 group-hover:text-white uppercase tracking-widest">ID</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="wrapper-clipper" id="mainWrapper">
+        <main class="zoom-container py-8 px-4 space-y-8">
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+                
+                <div class="lg:col-span-1 flex flex-col gap-6">
+                    <section class="glass-card p-6 rounded-2xl shadow-2xl">
+                        <h2 class="text-sm font-bold mb-6 flex items-center text-blue-400 uppercase tracking-widest">
+                            <i class="fas fa-cog mr-3"></i> <span data-key="param-title">Konfigurasi Parameter</span>
+                        </h2>
+                        <div class="grid grid-cols-2 gap-5">
+                            <div class="col-span-1">
+                                <label data-key="label-length" class="text-[12px] font-bold text-slate-500 uppercase tracking-wider">Panjang (cm)</label>
+                                <input type="number" id="bin-l" value="100" min="1" max="15977"
+                                    oninput="limitInput(this, 15977)"
+                                    onkeyup="limitInput(this, 15977)"
+                                    onkeypress="return (event.charCode >= 48 && event.charCode <= 57)"
+                                    class="w-full mt-1.5 p-2.5 rounded-lg border outline-none transition-all">
+                            </div>
+                            <div class="col-span-1">
+                                <label data-key="label-width" class="text-[12px] font-bold text-slate-500 uppercase tracking-wider">Lebar (cm)</label>
+                                <input type="number" id="bin-w" value="70" min="1" max="2489"
+                                    oninput="limitInput(this, 2489)"
+                                    onkeyup="limitInput(this, 2489)"
+                                    onkeypress="return (event.charCode >= 48 && event.charCode <= 57)"
+                                    class="w-full mt-1.5 p-2.5 rounded-lg border outline-none transition-all">
+                            </div>
+                            <div class="col-span-1">
+                                <label data-key="label-height" class="text-[12px] font-bold text-slate-500 uppercase tracking-wider">Tinggi (cm)</label>
+                                <input type="number" id="bin-h" value="70" min="1" max="2718"
+                                    oninput="limitInput(this, 2718)"
+                                    onkeyup="limitInput(this, 2718)"
+                                    onkeypress="return (event.charCode >= 48 && event.charCode <= 57)"
+                                    class="w-full mt-1.5 p-2.5 rounded-lg border outline-none transition-all">
+                            </div>
+                            <div class="col-span-1">
+                                <label data-key="label-weight" class="text-[12px] font-bold text-slate-500 uppercase tracking-wider">Maks Berat (kg)</label>
+                                <input type="number" id="bin-cap" value="500" min="1" max="40000"
+                                    oninput="limitInput(this, 40000)"
+                                    onkeyup="limitInput(this, 40000)"
+                                    onkeypress="return (event.charCode >= 48 && event.charCode <= 57)"
+                                    class="w-full mt-1.5 p-2.5 rounded-lg border outline-none transition-all">
+                            </div>
+
+                            <div class="col-span-2 grid grid-cols-2 gap-5 border-t border-slate-800 pt-4 mt-2">
+                                <div class="col-span-1">
+                                    <label class="text-[12px] font-bold text-blue-400 uppercase tracking-wider">Depot X</label>
+                                    <input type="number" id="depot-x" value="0" min="0" max="9999"
+                                        oninput="limitInput(this, 9999)"
+                                        onkeyup="limitInput(this, 9999)"
+                                        onkeypress="return (event.charCode >= 48 && event.charCode <= 57)"
+                                        class="w-full mt-1.5 p-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white outline-none focus:border-blue-500 transition-all">
+                                </div>
+                                <div class="col-span-1">
+                                    <label class="text-[12px] font-bold text-blue-400 uppercase tracking-wider">Depot Y</label>
+                                    <input type="number" id="depot-y" value="0" min="0" max="9999"
+                                        oninput="limitInput(this, 9999)"
+                                        onkeyup="limitInput(this, 9999)"
+                                        onkeypress="return (event.charCode >= 48 && event.charCode <= 57)"
+                                        class="w-full mt-1.5 p-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white outline-none focus:border-blue-500 transition-all">
+                                </div>
+                            </div>
+
+                            <div class="col-span-2 mt-4">
+                                <div class="flex justify-between items-center mb-2">
+                                <label data-key="label-threshold" class="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Ambang Batas Dukungan</label>
+                                    
+                                    <div class="flex items-center bg-slate-900 border-2 border-slate-700 rounded-xl px-4 py-1.5 min-w-[100px] justify-end focus-within:border-blue-500 transition-all shadow-inner">
+                                        <input type="number" 
+                                            id="threshold-input" 
+                                            value="100" 
+                                            min="50" 
+                                            max="100"
+                                            onkeypress="return (event.charCode >= 48 && event.charCode <= 57)"
+                                            onchange="validateThreshold(this)"
+                                            class="w-14 bg-transparent border-none text-blue-400 text-lg font-black focus:ring-0 p-0 text-right outline-none tracking-tighter">
+                                        <span class="text-blue-400 text-lg font-black ml-1">%</span>
+                                    </div>
+                                </div>
+                                
+                                <input type="range" 
+                                    id="support-threshold" 
+                                    min="50" 
+                                    max="100" 
+                                    value="100" 
+                                    class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500 mt-2">
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="glass-card p-6 rounded-2xl flex flex-col flex-grow shadow-2xl">
+                        <h2 data-key="input-title" class="text-sm font-bold mb-4 text-slate-400 uppercase tracking-widest">Input Data</h2>
+                        <div id="dropzone" class="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center hover:border-blue-500/50 hover:bg-blue-500/5 transition-all cursor-pointer group flex-grow flex flex-col justify-center">
+                            <i class="fas fa-file-import text-3xl text-slate-600 group-hover:text-blue-400 mb-3 transition-colors"></i>
+                            <p data-key="dropzone-text" class="text-[14px] text-slate-500 group-hover:text-slate-300 font-medium max-w-[200px] mx-auto leading-tight">
+                                Tarik dan Taruh / Klik di sini untuk input manifest CSV
+                            </p>
+                            <input type="file" id="csvFile" class="hidden" accept=".csv">
+                        </div>
+
+                        <div class="mt-6 grid grid-cols-1 gap-3">
+                            <button id="runBtn" onclick="runSimulation()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-blue-900/40 uppercase tracking-tighter text-sm">
+                                <i class="fas fa-play mr-2"></i> <span data-key="btn-optimize">Jalankan Optimasi</span>
+                            </button>
+                            
+                            <button id="exportBtn" onclick="exportToCSV()" disabled 
+                                class="w-full bg-slate-700 text-slate-500 cursor-not-allowed font-black py-4 rounded-xl transition-all shadow-lg uppercase tracking-tighter text-sm border border-white/5">
+                                <i class="fas fa-download mr-2"></i> <span data-key="btn-export">Ekspor Manifest Hasil</span>
+                            </button>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="lg:col-span-2 flex flex-col gap-6">
+                    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3"> 
+                        
+                        <div class="glass-card p-4 rounded-2xl border-t-2 border-blue-500/50 flex flex-col justify-center">
+                            <p data-key="stat-vol-label" class="text-slate-500 text-[12px] font-bold uppercase mb-1 truncate">Volume Terpakai</p>
+                            <p id="stat-vol" class="text-xl lg:text-2xl font-black text-white whitespace-nowrap">0 <span class="text-xs text-slate-600">%</span></p>
+                        </div>
+
+                        <div class="glass-card p-4 rounded-2xl border-t-2 border-emerald-500/50 flex flex-col justify-center">
+                            <p data-key="stat-weight-label" class="text-slate-500 text-[12px] font-bold uppercase mb-1 truncate">Jumlah Berat</p>
+                            <p id="stat-weight" class="text-xl lg:text-2xl font-black text-white whitespace-nowrap">0 <span class="text-xs text-slate-600">kg</span></p>
+                        </div>
+
+                        <div class="glass-card p-4 rounded-2xl border-t-2 border-purple-500/50 flex flex-col justify-center">
+                            <p data-key="stat-count-label" class="text-slate-500 text-[12px] font-bold uppercase mb-1 truncate">Jumlah Muatan</p>
+                            <p id="stat-count" class="text-xl lg:text-2xl font-black text-white whitespace-nowrap">0</p>
+                        </div>
+
+                        <div class="glass-card p-4 rounded-2xl border-t-2 border-rose-500/50 flex flex-col justify-center">
+                            <p data-key="stat-dist-label" class="text-slate-500 text-[12px] font-bold uppercase mb-1 truncate">Jarak Tempuh</p>
+                            <p id="stat-dist" class="text-xl lg:text-2xl font-black text-white whitespace-nowrap">0 <span class="text-xs text-slate-600">m</span></p>
+                        </div>
+
+                        <div class="glass-card p-4 rounded-2xl border-t-2 border-orange-500/50 flex flex-col justify-center">
+                            <p data-key="stat-total-dist-label" class="text-slate-500 text-[12px] font-bold uppercase mb-1 truncate text-[12px] leading-tight">Total Jarak <br> Semua Kontainer</p>
+                            <p id="stat-total-dist" class="text-xl lg:text-2xl font-black text-white whitespace-nowrap">0 <span class="text-xs text-slate-600">m</span></p>
+                        </div>
+
+                        <div class="glass-card p-4 rounded-2xl border-t-2 border-amber-500/50 flex flex-col justify-center">
+                            <p data-key="stat-time-label" class="text-slate-500 text-[12px] font-bold uppercase mb-1 truncate">Waktu Proses</p>
+                            <p id="stat-time" class="text-xl lg:text-2xl font-black text-white whitespace-nowrap">0 <span class="text-xs text-slate-600">ms</span></p>
+                        </div>
+
+                    </div>
+
+                    <section class="glass-card rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex-grow flex flex-col">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-800 flex-grow">
+                            
+                        <div class="p-6 flex flex-col h-full">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-[12px] font-bold text-blue-400 uppercase tracking-[0.2em] flex items-center mb-0">
+                                    <i class="fas fa-cube mr-2"></i> <span data-key="cargo-placement-title">Penempatan Muatan</span>
+                                </h3>
+
+                                <div class="flex items-center gap-3">
+                                    <button onclick="toggleFullScreen('three-container')" class="text-slate-500 hover:text-blue-400 transition-colors">
+                                        <i class="fas fa-expand text-[20px]"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="three-container" class="relative w-full h-[600px] bg-slate-950 rounded-xl overflow-hidden flex flex-grow border border-slate-800">
+                                
+                                <div id="item-id-display" class="absolute top-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+                                    <div class="bg-slate-900/80 backdrop-blur-md border border-white/10 px-6 py-2 rounded-2xl shadow-2xl flex flex-col items-center gap-0">
+                                        <span data-key="th-id" class="text-[12px] text-slate-500 uppercase font-bold tracking-[0.2em] leading-none mb-1">
+                                            ID Muatan
+                                        </span>
+                                        <span id="current-item-id" class="text-blue-400 font-mono font-bold text-xl tracking-tight">
+                                            -
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-row items-center gap-4 w-fit">
+                                    <div class="flex items-center gap-3 bg-slate-900/90 p-2 rounded-2xl border border-white/10 backdrop-blur-md shadow-xl">
+                                        <button id="btn-prev" class="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-blue-600 text-white rounded-xl transition-all shadow-lg">
+                                            <i class="fas fa-chevron-left"></i>
+                                        </button>
+                                        
+                                        <div class="px-2 text-center min-w-[80px]">
+                                            <div data-key="step-label" class="text-[12px] text-slate-500 uppercase font-bold tracking-wider text-center">Langkah <br> Muat</div>
+                                            <div id="step-counter" class="text-blue-400 font-mono font-bold text-base">0 / 0</div>
+                                        </div>
+
+                                        <button id="btn-next" class="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-blue-600 text-white rounded-xl transition-all shadow-lg">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="flex items-center gap-3 bg-slate-900/90 p-2 rounded-2xl border border-emerald-500/20 backdrop-blur-md shadow-xl shadow-emerald-500/5">
+                                        <button id="btn-bin-prev" class="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-emerald-600 text-white rounded-xl transition-all shadow-lg">
+                                            <i class="fas fa-chevron-left"></i>
+                                        </button>
+                                        
+                                        <div class="px-2 text-center min-w-[80px]">
+                                            <div data-key="bin-label" class="text-[12px] text-slate-500 uppercase font-bold tracking-wider text-center">Bin <br> Indeks</div>
+                                            <div id="bin-counter" class="text-emerald-400 font-mono font-bold text-base">0 / 0</div>
+                                        </div>
+
+                                        <button id="btn-bin-next" class="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-emerald-600 text-white rounded-xl transition-all shadow-lg">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div id="three-overlay" class="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/80">
+                                    <div class="text-center">
+                                        <i class="fas fa-box-open text-4xl text-slate-700 mb-3 block"></i>
+                                        <p data-key="no-placement" class="text-slate-500 text-sm">Belum ada penempatan</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                        </div>
+
+                        <div>
+                            <div class="p-6 flex flex-col h-full">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-[12px] font-bold text-emerald-400 uppercase tracking-[0.2em] flex items-center mb-0">
+                                        <i class="fas fa-route mr-2"></i> <span data-key="route-map-title">Peta Rute Pengiriman</span>
+                                    </h3>
+
+                                    <div class="flex items-center gap-3">
+                                        <button onclick="toggleMapLabels()" class="text-slate-500 hover:text-blue-400 transition-colors">
+                                            <i class="fas fa-minus text-[20px]"></i>
+                                        </button>
+                                    </div>                
+                                </div>
+                                
+                                <div id="route-panel-container" class="relative w-full h-[600px] bg-slate-950 rounded-xl overflow-hidden flex flex-grow border border-slate-800">
+                                    <div class="absolute inset-0 opacity-[0.05]" style="background-image: radial-gradient(#3b82f6 1px, transparent 1px); background-size: 24px 24px;"></div>
+                                    
+                                    <canvas id="vrpCanvas" class="w-full h-full relative z-10"></canvas>
+
+                                    <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 w-fit">
+                                        <div class="bg-slate-900/90 px-6 py-3 rounded-2xl border border-white/10 backdrop-blur-md shadow-xl flex flex-col gap-3">
+                                            
+                                            <div class="flex items-center justify-center gap-6">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-3 h-3 bg-red-500 rounded-sm shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
+                                                    <span data-key="legend-depot" class="text-[12px] text-slate-300 uppercase font-bold tracking-wider">Depot</span>
+                                                </div>
+                                                
+                                                <div class="w-[1px] h-3 bg-slate-700"></div>
+
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-2.5 h-2.5 rounded-full bg-[#10b981] shadow-[0_0_8px_#10b981]"></div>
+                                                    <span data-key="legend-dest" class="text-[12px] text-slate-300 uppercase font-bold tracking-wider">Destinasi</span>
+                                                </div>
+                                            </div>
+
+                                            <div class="h-[1px] w-full bg-white/5"></div>
+
+                                            <div class="flex items-center justify-center gap-6">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="flex items-center">
+                                                        <div class="w-5 h-[2px] bg-[#facc15]"></div>
+                                                        <div class="w-0 h-0 
+                                                            border-t-[5px] border-t-transparent 
+                                                            border-b-[5px] border-b-transparent 
+                                                            border-l-[8px] border-l-[#facc15]">
+                                                        </div>
+                                                    </div>
+                                                    <span data-key="legend-start" class="text-[12px] text-slate-400 uppercase font-bold tracking-wider">Awal</span>
+                                                </div>
+
+                                                <div class="w-[1px] h-3 bg-slate-800"></div>
+
+                                                <div class="flex items-center gap-2">
+                                                    <div class="flex items-center">
+                                                        <div class="w-5 h-[4px] bg-[#3b82f6]"></div>
+                                                    </div>
+                                                    <span data-key="legend-route" class="text-[12px] text-slate-400 uppercase font-bold tracking-wider">Rute</span>
+                                                </div>
+
+                                                <div class="w-[1px] h-3 bg-slate-800"></div>
+                                                
+                                                <div class="flex items-center gap-2">
+                                                    <div class="flex items-center">
+                                                        <div class="w-5 h-[2px] bg-[#ffffff]"></div>
+                                                        <div class="w-0 h-0 
+                                                            border-t-[5px] border-t-transparent 
+                                                            border-b-[5px] border-b-transparent 
+                                                            border-l-[8px] border-l-[#ffffff]">
+                                                        </div>
+                                                    </div>
+                                                    <span data-key="legend-back" class="text-[12px] text-slate-400 uppercase font-bold tracking-wider">Kembali</span>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    </div>
+
+                                    <div id="route-overlay" class="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/80">
+                                        <div class="text-center">
+                                            <i class="fas fa-map-marked-alt text-4xl text-slate-700 mb-3 block"></i>
+                                            <p data-key="no-route" class="text-slate-500 text-sm">Belum ada rute pengiriman</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <section class="glass-card rounded-2xl overflow-hidden border border-slate-800 shadow-2xl">
+                <div class="px-6 py-4 bg-slate-900/50 border-b border-slate-800 flex justify-between items-center">
+                    <h2 data-key="table-title" class="text-sm font-bold text-slate-400 uppercase tracking-widest">Instruksi Pemuatan</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead>
+                            <tr class="text-slate-500 bg-slate-950/50 font-bold uppercase tracking-tighter">
+                                <th data-key="th-step" class="px-6 py-4 font-bold text-slate-400">Langkah</th>
+                                <th data-key="th-id" class="px-6 py-4 font-bold text-slate-400">ID Muatan</th>
+                                <th data-key="th-dim" class="px-6 py-4 font-bold text-slate-400">Dimensi</th>
+                                <th data-key="th-weight" class="px-6 py-4 font-bold text-slate-400">Berat</th>
+                                <th data-key="th-coord" class="px-6 py-4 text-blue-400">Koord Penempatan [X, Y, Z]</th>
+                            </tr>
+                        </thead>
+                        <tbody id="loadingTableBody" class="divide-y divide-slate-800/50">
+                            <tr>
+                                <td colspan="5" class="px-6 py-16 text-center text-slate-600">
+                                    <i class="fas fa-terminal mb-3 text-xl block"></i>
+                                    <span data-key="table-empty-msg" class="font-mono text-[14px]">Hasil Penempatan</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+</body>
+
+    <script>
+        let scene, camera, renderer, container_mesh;
+        let item_group = new THREE.Group();
+        let isMouseDown = false;
+        let mouseX = 0, mouseY = 0;
+        let targetRotationX = 0.5, targetRotationY = -0.5;
+
+        let allBinsData = []; 
+        let currentBinIndex = 0;
+        let currentStep = 0;
+        let currentBinDims = { l: 0, w: 0, h: 0 };
+
+        let dropzone, fileInput, supportSlider, thresholdInput;
+        let currentFileName = "";
+        let showMapLabels = true;
+
+        let mapTransform = { x: 0, y: 0, scale: 1 };
+        let isDragging = false;
+        let lastMousePos = { x: 0, y: 0 };
+        let isRightMouseDown = false;
+        let cameraTarget = new THREE.Vector3(0, 0, 0); 
+        window.lastProcessedItems = [];
+
+        let currentLang = 'en';
+
+        const canvas = document.getElementById('vrpCanvas');
+        const slider = document.getElementById('support-threshold');
+        const numInput = document.getElementById('threshold-input');
+
+        const btnBinNext = document.getElementById('btn-bin-next');
+        const btnBinPrev = document.getElementById('btn-bin-prev');
+        let binHoldTimer;
+        let isBinHold = false;
+
+        const btnNext = document.getElementById('btn-next');
+        const btnPrev = document.getElementById('btn-prev');
+        let holdTimer;
+        let isHold = false;
+
+        function initThree() {
+            const container = document.getElementById('three-container');
+            if (!container) return;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x020617);
+            
+            const aspect = container.clientWidth / container.clientHeight;
+            camera = new THREE.PerspectiveCamera(45, aspect, 1, 500000);
+            camera.position.set(600, 400, 600);
+            camera.lookAt(cameraTarget);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+            const pointLight = new THREE.PointLight(0x3b82f6, 1);
+            pointLight.position.set(500, 1000, 500);
+            scene.add(pointLight);
+
+            scene.add(item_group);
+
+            container.addEventListener('contextmenu', (e) => e.preventDefault());
+
+            container.addEventListener('mousedown', (e) => {
+                if (e.button === 0) isMouseDown = true;     
+                if (e.button === 2) isRightMouseDown = true;
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+
+            window.addEventListener('mouseup', () => {
+                isMouseDown = false;
+                isRightMouseDown = false;
+            });
+
+            container.addEventListener('mousemove', (e) => {
+                const deltaX = e.clientX - mouseX;
+                const deltaY = e.clientY - mouseY;
+
+                if (isMouseDown) {
+                    targetRotationY += deltaX * 0.01;
+                    targetRotationX += deltaY * 0.01;
+                } 
+                else if (isRightMouseDown) {
+                    const distance = camera.position.distanceTo(cameraTarget);
+                    const panSpeed = distance * 0.0008;
+
+                    const vectorRight = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+                    const vectorUp = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+
+                    const moveX = vectorRight.multiplyScalar(-deltaX * panSpeed);
+                    const moveY = vectorUp.multiplyScalar(deltaY * panSpeed);
+
+                    camera.position.add(moveX).add(moveY);
+                    cameraTarget.add(moveX).add(moveY);
+                }
+
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+
+                const l = parseFloat(document.getElementById('bin-l')?.value) || 500;
+                const w = parseFloat(document.getElementById('bin-w')?.value) || 500;
+                const h = parseFloat(document.getElementById('bin-h')?.value) || 500;
+                const maxDim = Math.max(l, w, h);
+
+                const minDistance = maxDim * 0.1;
+                const maxDistance = maxDim * 15;
+                const zoomSpeed = 0.1;
+
+                const factor = e.deltaY > 0 ? (1 + zoomSpeed) : (1 - zoomSpeed);
+                
+                const diff = camera.position.clone().sub(cameraTarget);
+                const newPos = cameraTarget.clone().add(diff.multiplyScalar(factor));
+                
+                const newDist = newPos.distanceTo(cameraTarget);
+                if (newDist > minDistance && newDist < maxDistance) {
+                    camera.position.copy(newPos);
+                }
+            }, { passive: false });
+
+            window.addEventListener('resize', () => {
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+                renderer.setSize(width, height);
+            });
+            animate();
+        }
+
+        function autoFitCamera(l, w, h) {
+            const maxDim = Math.max(l, w, h);
+            
+            const idealDist = maxDim * 2; 
+            
+            camera.position.set(idealDist, idealDist, idealDist);
+            camera.lookAt(0, 0, 0);
+            
+            if (typeof controls !== 'undefined') {
+                controls.target.set(0, 0, 0);
+                controls.update();
+            }
+        }
+
+        function createBin(l, w, h) {
+            if (container_mesh) scene.remove(container_mesh);
+            
+            currentBinDims = { l, w, h };
+
+            const geometry = new THREE.BoxGeometry(w, h, l); 
+            const edges = new THREE.EdgesGeometry(geometry);
+            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ 
+                color: 0x3b82f6, 
+                transparent: true, 
+                opacity: 0.5 
+            }));
+            
+            const floor = new THREE.Mesh(
+                new THREE.PlaneGeometry(w, l),
+                new THREE.MeshBasicMaterial({ 
+                    color: 0x0f172a, 
+                    side: THREE.DoubleSide, 
+                    transparent: true, 
+                    opacity: 0.5,
+                    depthWrite: false,
+                    polygonOffset: true,
+                    polygonOffsetFactor: 2,
+                    polygonOffsetUnits: 1
+                })
+            );
+            floor.rotation.x = Math.PI/2;
+            floor.position.y = -h/2; 
+
+            const doorGeom = new THREE.PlaneGeometry(w, h);
+            const doorMat = new THREE.MeshBasicMaterial({
+                color: 0xef4444,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.3,
+                depthWrite: false
+            });
+            const door = new THREE.Mesh(doorGeom, doorMat);
+            
+            door.position.z = l / 2;
+            
+            const doorEdges = new THREE.EdgesGeometry(doorGeom);
+            const doorLine = new THREE.LineSegments(doorEdges, new THREE.LineBasicMaterial({ color: 0xef4444 }));
+            door.add(doorLine);
+
+            container_mesh = new THREE.Group();
+            container_mesh.add(line); 
+            container_mesh.add(floor);
+            container_mesh.add(door); 
+            
+            scene.add(container_mesh);
+
+            autoFitCamera(l, w, h)
+        }
+
+        function addBoxToScene(item, color) {
+            const geometry = new THREE.BoxGeometry(item.w, item.h, item.l);
+            const material = new THREE.MeshPhongMaterial({ 
+                color: color, 
+                transparent: true, 
+                opacity: 0.8 
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+
+            const posX = (item.pos3d[0] + item.w / 2) - (currentBinDims.w / 2);
+            const posY = (item.pos3d[1] + item.h / 2) - (currentBinDims.h / 2);
+            const posZ = (item.pos3d[2] + item.l / 2) - (currentBinDims.l / 2);
+
+            mesh.position.set(posX, posY, posZ);
+
+            const edgeGeom = new THREE.EdgesGeometry(geometry);
+            const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 });
+            const wireframe = new THREE.LineSegments(edgeGeom, edgeMat);
+            mesh.add(wireframe);
+
+            mesh.visible = true; 
+            item_group.add(mesh);
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            if (item_group && container_mesh) {
+                item_group.rotation.y += (targetRotationY - item_group.rotation.y) * 0.1;
+                item_group.rotation.x += (targetRotationX - item_group.rotation.x) * 0.1;
+                container_mesh.rotation.copy(item_group.rotation);
+            }
+            renderer.render(scene, camera);
+        }
+
+        function changeBin(delta, jumpTo = null) {
+            let newIndex;
+            
+            if (jumpTo !== null) {
+                newIndex = jumpTo;
+            } else {
+                newIndex = currentBinIndex + delta;
+            }
+
+            if (newIndex >= 0 && newIndex < allBinsData.length) {
+                currentBinIndex = newIndex;
+                renderCurrentBin();
+            }
+        }
+
+        function setupBinHoldEvent(el, delta, jumpTargetType) {
+            const startEvent = (e) => {
+                if (e.type === 'touchstart') e.preventDefault(); 
+                isBinHold = false;
+                
+                binHoldTimer = setTimeout(() => {
+                    isBinHold = true;
+                    const target = (jumpTargetType === 'end') ? (allBinsData.length - 1) : 0;
+                    changeBin(0, target);
+                }, 600);
+            };
+
+            const endEvent = () => {
+                clearTimeout(binHoldTimer);
+                if (!isBinHold) {
+                    changeBin(delta);
+                }
+                isBinHold = false;
+            };
+
+            const cancelEvent = () => clearTimeout(binHoldTimer);
+
+            el.addEventListener('mousedown', startEvent);
+            el.addEventListener('mouseup', endEvent);
+            el.addEventListener('mouseleave', cancelEvent);
+
+            el.addEventListener('touchstart', startEvent, { passive: false });
+            el.addEventListener('touchend', endEvent);
+            el.addEventListener('touchcancel', cancelEvent);
+        }
+
+        if (btnBinNext) setupBinHoldEvent(btnBinNext, 1, 'end');
+        if (btnBinPrev) setupBinHoldEvent(btnBinPrev, -1, 'start');
+
+        function renderCurrentBin() {
+            const binData = allBinsData[currentBinIndex];
+            const items = binData.items;
+
+            item_group.clear();
+            currentStep = items.length;
+
+            const colors = [0x3b82f6, 0x10b981, 0x8b5cf6, 0xf59e0b, 0xef4444];
+            items.forEach((item, i) => {
+                addBoxToScene(item, colors[i % colors.length]);
+            });
+
+            document.getElementById('bin-counter').textContent = `${currentBinIndex + 1} / ${allBinsData.length}`;
+            document.getElementById('step-counter').textContent = `${currentStep} / ${items.length}`;
+            document.getElementById('stat-vol').innerHTML = `${binData.stats.volume_eff.replace('%', '')} <span class="text-sm text-slate-600">%</span>`;            document.getElementById('stat-count').textContent = binData.stats.count;
+            document.getElementById('stat-weight').innerHTML = `${binData.stats.total_weight} <span class="text-sm text-slate-600">kg</span>`;
+            document.getElementById('stat-dist').innerHTML = `${binData.stats.distance} <span class="text-sm text-slate-600">m</span>`;
+
+            changeStep(0);
+            updateTable(items);
+            drawVRPMap(items);
+        }
+
+        function changeStep(delta, jumpTo = null) {
+            const items = allBinsData[currentBinIndex]?.items || [];
+            if (items.length === 0) return;
+
+            if (jumpTo !== null) {
+                currentStep = jumpTo;
+            } else {
+                currentStep = Math.max(0, Math.min(items.length, currentStep + delta));
+            }
+
+            item_group.children.forEach((mesh, index) => {
+                mesh.visible = (index < currentStep);
+            });
+
+            document.getElementById('step-counter').textContent = `${currentStep} / ${items.length}`;
+
+            const idDisplay = document.getElementById('current-item-id');
+            if (idDisplay) {
+                if (currentStep > 0) {
+                    const currentItem = items[currentStep - 1];
+                    idDisplay.textContent = currentItem.id || "-";
+                } else {
+                    idDisplay.textContent = "-";
+                }
+            }
+
+            drawVRPMap(items.slice(0, currentStep));
+        }
+
+        function setupHoldEvent(el, delta, jumpTargetType) {
+            const startEvent = (e) => {
+                e.preventDefault();
+                isHold = false;
+                
+                holdTimer = setTimeout(() => {
+                    isHold = true;
+                    const items = allBinsData[currentBinIndex]?.items || [];
+                    
+                    const target = (jumpTargetType === 'end') ? items.length : 0;
+                    changeStep(0, target);
+                }, 600);
+            };
+
+            const endEvent = () => {
+                clearTimeout(holdTimer);
+                if (!isHold) {
+                    changeStep(delta);
+                }
+                isHold = false;
+            };
+
+            const cancelEvent = () => clearTimeout(holdTimer);
+
+            el.addEventListener('mousedown', startEvent);
+            el.addEventListener('mouseup', endEvent);
+            el.addEventListener('mouseleave', cancelEvent);
+
+            el.addEventListener('touchstart', startEvent, { passive: false });
+            el.addEventListener('touchend', endEvent);
+            el.addEventListener('touchcancel', cancelEvent);
+        }
+
+        if (btnNext) setupHoldEvent(btnNext, 1, 'end');
+        if (btnPrev) setupHoldEvent(btnPrev, -1, 'start');
+
+        async function runSimulation() {
+            const btn = document.getElementById('runBtn');
+            const exportBtn = document.getElementById('exportBtn');
+            const fileInput = document.getElementById('csvFile');
+
+            const binL = document.getElementById('bin-l').value;
+            const binW = document.getElementById('bin-w').value;
+            const binH = document.getElementById('bin-h').value;
+            const binCap = document.getElementById('bin-cap').value;
+            const threshold = document.getElementById('threshold-input').value;
+            const depotX = document.getElementById('depot-x').value;
+            const depotY = document.getElementById('depot-y').value;
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert("Peringatan: Dataset belum dipilih. Silakan upload file CSV terlebih dahulu.");
+                return;
+            }
+            
+            if (!binL || !binW || !binH || !binCap || !threshold || !depotX || !depotY) {
+                alert("Semua input (Dimensi, Kapasitas, Threshold, dan Koordinat Depot) harus diisi!");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('bin_l', binL);
+            formData.append('bin_w', binW);
+            formData.append('bin_h', binH);
+            formData.append('weight', binCap);
+            formData.append('support_threshold', threshold);
+            formData.append('depot_coords', `${depotX},${depotY}`);
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memproses...';
+
+            try {
+                const response = await fetch('/proses_data', { method: 'POST', body: formData });
+                const data = await response.json();
+
+                if (data.status === "success") {
+                    document.getElementById('three-overlay').classList.add('hidden');
+
+                    const ms = data.execution_time;
+                    const total_dest = data.total_dest;
+                    let displayTime;
+
+                    if (ms >= 1000) {
+                        const unitSec = translations[currentLang]['unit-seconds'] || 'detik';
+                        const sec = (ms / 1000).toFixed(2);
+                        displayTime = `${sec} <span class="text-sm text-slate-600" data-key="unit-seconds">${unitSec}</span>`;
+                    } else {
+                        displayTime = `${ms} <span class="text-sm text-slate-600">ms</span>`;
+                    }
+
+                    document.getElementById('stat-total-dist').innerHTML = `${data.total_distance} <span class="text-sm text-slate-600">m</span>`;
+
+                    document.getElementById('stat-time').innerHTML = displayTime;
+
+                    if(exportBtn) {
+                        exportBtn.disabled = false;
+                        
+                        exportBtn.classList.remove('bg-slate-700', 'text-slate-500', 'cursor-not-allowed', 'border-white/5');
+                        exportBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'text-white', 'cursor-pointer', 'border-emerald-500/20');
+                        
+                        exportBtn.classList.add('shadow-emerald-900/20');
+
+                    }
+
+                    allBinsData = data.bins;
+                    currentBinIndex = 0;
+                    
+                    createBin(data.bin_dims[0], data.bin_dims[1], data.bin_dims[2]);
+                    renderCurrentBin();
+
+                    setTimeout(() => {
+                        const container = document.querySelector('.zoom-container');
+                        const wrapper = document.getElementById('mainWrapper');
+                        
+                        if (container && wrapper) {
+                            const visualHeight = container.getBoundingClientRect().height;
+
+                            wrapper.style.height = visualHeight + "px";
+                        }
+                    }, 100);
+
+                } else {
+                    alert("Gagal: " + data.message);
+                }
+            } catch (e) { 
+                alert("Error koneksi ke server."); 
+            } finally { 
+                btn.disabled = false; 
+                btn.innerHTML = '<i class="fas fa-play mr-2"></i>Jalankan Optimasi'; 
+            }
+        }
+
+        function updateTable(items) {
+            const tbody = document.getElementById('loadingTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const itemsWithStep = items.map((item, index) => ({
+                ...item,
+                stepNumber: index + 1
+            }));
+
+            itemsWithStep.sort((a, b) => a.stepNumber - b.stepNumber);
+
+            itemsWithStep.forEach((item) => {
+                const cleanId = typeof item.id === 'number' ? Math.floor(item.id) : item.id;
+
+                const tr = document.createElement('tr');
+
+                tr.className = "border-b border-white/5 odd:bg-white/[0.03] even:bg-transparent hover:bg-blue-500/10 transition-colors";
+                
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-bold text-slate-400 text-base">#${item.stepNumber}</td>
+                    <td class="px-6 py-4 font-bold text-slate-100 text-base">${cleanId}</td>
+                    
+                    <td class="px-6 py-4 text-slate-300 text-sm font-medium">${item.l_orig} × ${item.w_orig} × ${item.h_orig}</td>
+                    <td class="px-6 py-4 text-slate-300 text-sm font-bold">${item.weight} kg</td>
+                    
+                    <td class="px-6 py-4 text-blue-400 font-mono text-sm font-bold tracking-tight">
+                        [${item.pos3d.map(v => Math.round(v)).join(', ')}]
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+                
+        function drawVRPMap(items) {
+            const canvas = document.getElementById('vrpCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            if (items) window.lastProcessedItems = items;
+            const dataToDraw = window.lastProcessedItems || [];
+
+            const routeOverlay = document.getElementById('route-overlay');
+            if (routeOverlay) routeOverlay.style.display = 'none';
+
+            if (canvas.width !== canvas.offsetWidth || canvas.height !== canvas.offsetHeight) {
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+            }
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const depotXInput = parseFloat(document.getElementById('depot-x').value) || 0;
+            const depotYInput = parseFloat(document.getElementById('depot-y').value) || 0;
+
+            ctx.save();
+            ctx.translate(mapTransform.x, mapTransform.y);
+            ctx.scale(mapTransform.scale, mapTransform.scale);
+
+            const paddingX = canvas.width * 0.17;
+            const paddingY = canvas.height * 0.17;
+            const offsetBottom = 80; 
+
+            const coordsX = dataToDraw.map(it => it.x);
+            const coordsY = dataToDraw.map(it => it.y);
+            coordsX.push(depotXInput); 
+            coordsY.push(depotYInput);
+
+            const minX = Math.min(...coordsX), maxX = Math.max(...coordsX);
+            const minY = Math.min(...coordsY), maxY = Math.max(...coordsY);
+
+            const getScreenX = (val) => paddingX + ((val - minX) / (maxX - minX || 1)) * (canvas.width - paddingX * 2);
+
+            const getScreenY = (val) => {
+                const availableHeight = canvas.height - paddingY * 2 - offsetBottom;
+                const scaledY = ((val - minY) / (maxY - minY || 1)) * availableHeight;
+                return (canvas.height - paddingY - offsetBottom) - scaledY;
+            };
+            
+            const depotPos = { x: getScreenX(0), y: getScreenY(0) };
+
+            if (dataToDraw.length > 0) {
+                const drawArrowhead = (ctx, fromX, fromY, toX, toY, color) => {
+                    const headLength = 12;
+                    const angle = Math.atan2(toY - fromY, toX - fromX);
+                    
+                    ctx.save(); 
+                    ctx.setLineDash([]); 
+                    ctx.beginPath();
+                    ctx.fillStyle = color;
+                    
+                    const offset = 5; 
+                    const tipX = toX - offset * Math.cos(angle);
+                    const tipY = toY - offset * Math.sin(angle);
+
+                    ctx.moveTo(tipX, tipY);
+                    ctx.lineTo(tipX - headLength * Math.cos(angle - Math.PI / 6), tipY - headLength * Math.sin(angle - Math.PI / 6));
+                    ctx.lineTo(tipX - headLength * Math.cos(angle + Math.PI / 6), tipY - headLength * Math.sin(angle + Math.PI / 6));
+                    
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                };
+
+                const firstItemX = getScreenX(dataToDraw[0].x);
+                const firstItemY = getScreenY(dataToDraw[0].y);
+
+                ctx.setLineDash([5, 5]);
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.strokeStyle = '#ffffff';
+                ctx.moveTo(depotPos.x, depotPos.y);
+                ctx.lineTo(firstItemX, firstItemY);
+                ctx.stroke();
+
+                drawArrowhead(ctx, firstItemX, firstItemY, depotPos.x, depotPos.y, '#ffffff');
+
+                if (dataToDraw.length > 1) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = '#3b82f6';
+                    ctx.moveTo(getScreenX(dataToDraw[0].x), getScreenY(dataToDraw[0].y));
+                    for (let i = 1; i < dataToDraw.length; i++) {
+                        ctx.lineTo(getScreenX(dataToDraw[i].x), getScreenY(dataToDraw[i].y));
+                    }
+                    ctx.stroke();
+                }
+
+                const lastItem = dataToDraw[dataToDraw.length - 1];
+                const lastX = getScreenX(lastItem.x);
+                const lastY = getScreenY(lastItem.y);
+
+                ctx.beginPath();
+                ctx.strokeStyle = '#facc15';
+                ctx.moveTo(lastX, lastY);
+                ctx.lineTo(depotPos.x, depotPos.y);
+                ctx.stroke();
+
+                drawArrowhead(ctx, depotPos.x, depotPos.y, lastX, lastY,'#facc15');
+
+                ctx.setLineDash([]); 
+
+                const groupedPoints = {};
+                dataToDraw.forEach(item => {
+                    const key = `${item.x.toFixed(2)},${item.y.toFixed(2)}`;
+                    if (!groupedPoints[key]) groupedPoints[key] = { x: item.x, y: item.y, ids: [] };
+                    if (!groupedPoints[key].ids.includes(item.id)) groupedPoints[key].ids.push(item.id);
+                });
+
+                Object.values(groupedPoints).forEach(point => {
+                    const sx = getScreenX(point.x);
+                    const sy = getScreenY(point.y);
+
+                    ctx.fillStyle = '#10b981';
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = '#10b981';
+                    ctx.beginPath(); 
+                    ctx.arc(sx, sy, 5, 0, Math.PI * 2); 
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+
+                    const abbreviateID = (id) => {
+                        const strId = String(id);
+                        if (strId.length <= 5) return strId;
+                        return strId.substring(0, 2) + "..." + strId.slice(-3);
+                    };
+
+                    if (showMapLabels) {
+                        ctx.font = "bold 11px Inter, sans-serif";
+                        const idsPerLine = 2;
+                        const lines = [];
+
+                        for (let i = 0; i < point.ids.length; i += idsPerLine) {
+                            const chunk = point.ids.slice(i, i + idsPerLine)
+                                .map(id => abbreviateID(id))
+                                .join(", ");
+                            
+                            lines.push((i === 0 ? "ID: " : "    ") + chunk);
+                        }
+
+                        lines.forEach((lineText, index) => {
+                            const lineHeight = 14;
+                            const textY = sy + (index * lineHeight) + 4; 
+                            const textX = sx + 12;
+
+                            const textWidth = ctx.measureText(lineText).width;
+                            ctx.fillStyle = 'rgba(2, 6, 23, 0.7)';
+                            ctx.fillRect(textX - 2, textY - 10, textWidth + 4, 13);
+
+                            ctx.fillStyle = '#cbd5e1';
+                            ctx.fillText(lineText, textX, textY);
+                        });
+                    }
+                });
+
+                ctx.fillStyle = '#ef4444';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#ef4444';
+                ctx.fillRect(depotPos.x - 8, depotPos.y - 8, 16, 16);
+                ctx.shadowBlur = 0;
+                
+                if (showMapLabels) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = "bold 12px Inter, sans-serif";
+                    ctx.fillText("DEPOT", depotPos.x - 20, depotPos.y + 25);
+                }
+                ctx.restore();
+            }
+        }         
+               
+        function toggleMapLabels() {
+            if (!window.lastProcessedItems || window.lastProcessedItems.length === 0) {
+                console.log("Simulasi belum dijalankan, toggle dinonaktifkan.");
+                return; 
+            }
+
+            showMapLabels = !showMapLabels;
+            
+            drawVRPMap(); 
+        }
+        
+        window.onload = () => {
+            dropzone = document.getElementById('dropzone');
+            fileInput = document.getElementById('csvFile');
+            supportSlider = document.getElementById('support-threshold');
+            thresholdInput = document.getElementById('threshold-input');
+
+            if (!dropzone || !fileInput) {
+                console.error("Elemen dropzone atau fileInput tidak ditemukan!");
+                return;
+            }
+
+            fileInput.value = '';
+
+            initThree();
+            animate();
+
+            dropzone.addEventListener('click', () => fileInput.click());
+
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.add('bg-blue-500/10', 'border-blue-500');
+            });
+
+            dropzone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('bg-blue-500/10', 'border-blue-500');
+            });
+
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('bg-blue-500/10', 'border-blue-500');
+
+                const files = e.dataTransfer.files;
+                
+                if (files.length > 0) {
+                    const file = files[0]; 
+                    if (!file.name.toLowerCase().endsWith('.csv')) {
+                        alert('Input file .csv!');
+                        fileInput.value = ''; 
+                        return;
+                    }
+
+                    fileInput.files = files; 
+                    handleFileSelect(file);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file && !file.name.toLowerCase().endsWith('.csv')) {
+                    alert('Input file .csv!');
+                    fileInput.value = '';
+                    return;
+                }
+                if (file) handleFileSelect(file);
+            });
+
+            if (supportSlider && thresholdInput) {
+                supportSlider.addEventListener('input', (e) => thresholdInput.value = e.target.value);
+                thresholdInput.addEventListener('input', (e) => {
+                    let val = Math.min(Math.max(parseInt(e.target.value) || 50, 50), 100);
+                    supportSlider.value = val;
+                });
+            }
+
+            window.addEventListener('resize', () => {
+                const container = document.getElementById('three-container');
+                if (!container || !camera || !renderer) return;
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+        };
+
+        function handleFileSelect(file) {
+            if (file && file.name.endsWith('.csv')) {
+                currentFileName = file.name;
+                
+                const infoText = dropzone.querySelector('p');
+                const icon = dropzone.querySelector('i');
+                
+                const label = currentLang === 'id' ? 'File terpilih:' : 'Selected file:';
+                
+                if (infoText) {
+                    infoText.innerHTML = `${label} <br> <span class="text-blue-400 font-bold">${currentFileName}</span>`;
+                }
+                if (icon) icon.classList.replace('fa-file-import', 'fa-file-csv');
+            } else {
+                alert("Mohon upload file format .CSV");
+            }
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            
+            const dx = e.clientX - lastMousePos.x;
+            const dy = e.clientY - lastMousePos.y;
+            
+            mapTransform.x += dx;
+            mapTransform.y += dy;
+            lastMousePos = { x: e.clientX, y: e.clientY };
+
+            applyBounds();
+
+            if (window.lastProcessedItems) drawVRPMap(window.lastProcessedItems);
+        });
+
+        function applyBounds() {
+            const canvas = document.getElementById('vrpCanvas');
+            if (!canvas) return;
+
+            const margin = 300 * mapTransform.scale; 
+            
+            if (mapTransform.x > margin) mapTransform.x = margin;
+            if (mapTransform.x < -margin) mapTransform.x = -margin;
+            
+            if (mapTransform.y > margin) mapTransform.y = margin;
+            if (mapTransform.y < -margin) mapTransform.y = -margin;
+        }
+                
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastMousePos = { x: e.clientX, y: e.clientY };
+            canvas.style.cursor = 'grabbing';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - lastMousePos.x;
+            const dy = e.clientY - lastMousePos.y;
+            
+            mapTransform.x += dx;
+            mapTransform.y += dy;
+            lastMousePos = { x: e.clientX, y: e.clientY };
+
+            if (window.lastProcessedItems) drawVRPMap(window.lastProcessedItems);
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomSpeed = 0.001;
+            const delta = -e.deltaY;
+            const oldScale = mapTransform.scale;
+            
+            const newScale = Math.min(Math.max(0.5, oldScale + delta * zoomSpeed), 5.0);
+            
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            mapTransform.x -= (mouseX - mapTransform.x) * (newScale / oldScale - 1);
+            mapTransform.y -= (mouseY - mapTransform.y) * (newScale / oldScale - 1);
+            mapTransform.scale = newScale;
+
+            applyBounds();
+
+            drawVRPMap();
+        }, { passive: false });
+                
+        document.querySelectorAll('input[type="number"]').forEach(input => {
+            input.addEventListener('paste', e => {
+                const pasteData = e.clipboardData.getData('text');
+                if (!/^\d+$/.test(pasteData)) {
+                    e.preventDefault();
+                }
+            });
+        });
+    
+        function validateThreshold(input) {
+            let value = parseInt(input.value);
+
+            if (isNaN(value) || value < 50) {
+                input.value = 50;
+            } 
+            else if (value > 100) {
+                input.value = 100;
+            }
+            
+            document.getElementById('support-threshold').value = input.value;
+        }
+
+        slider.addEventListener('input', function() {
+            numInput.value = this.value;
+        });
+
+        numInput.addEventListener('input', function() {
+            if (this.value >= 50 && this.value <= 100) {
+                slider.value = this.value;
+            }
+        });
+
+        function toggleFullScreen(elementId) {
+            const target = document.getElementById(elementId);
+            if (!document.fullscreenElement) {
+                target.requestFullscreen().catch(err => {
+                    console.error(`Error: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        const translations = {
+            'id': {
+                'change-lang': 'Ubah  <br> Bahasa',
+                'param-title': 'Konfigurasi Parameter',
+                'label-length': 'Panjang (cm)',
+                'label-width': 'Lebar (cm)',
+                'label-height': 'Tinggi (cm)',
+                'label-weight': 'Maks Berat (kg)',
+                'label-threshold': 'Ambang Batas Dukungan',
+                'input-title': 'Input Data',
+                'dropzone-text': 'Tarik dan Taruh / Klik di sini untuk input manifest CSV',
+                'btn-optimize': 'Jalankan Optimasi',
+                'btn-export': 'Ekspor Manifest Hasil',
+                'stat-vol-label': 'Volume Terpakai',
+                'stat-weight-label': 'Jumlah Berat',
+                'stat-dist-label': 'Jarak Tempuh',
+                'stat-count-label': 'Jumlah Muatan',
+                'stat-time-label': 'Waktu Proses',
+                'cargo-placement-title': 'Penempatan Muatan',
+                'step-label': 'Langkah <br> Muat',
+                'bin-label': 'Bin <br> Indeks',
+                'no-placement': 'Belum ada penempatan',
+                'route-map-title': 'Peta Rute Pengiriman',
+                'legend-depot': 'Depot',
+                'legend-dest': 'Destinasi',
+                'legend-start': 'Awal',
+                'legend-route': 'Rute',
+                'legend-back': 'Kembali',
+                'no-route': 'Belum ada rute pengiriman',
+                'table-title': 'Instruksi Pemuatan',
+                'th-step': 'Langkah',
+                'th-id': 'ID Muatan',
+                'th-dim': 'Dimensi',
+                'th-weight': 'Berat',
+                'th-coord': 'Koord Penempatan [X, Y, Z]',
+                'table-empty-msg': 'Hasil Penempatan',
+                'unit-seconds': 'detik',
+                'stat-total-dist-label': 'Total Jarak <br> Semua Kontainer'
+            },
+            'en': {
+                'change-lang': 'Change <br> Language',
+                'param-title': 'Config Parameters',
+                'label-length': 'Length (cm)',
+                'label-width': 'Width (cm)',
+                'label-height': 'Height (cm)',
+                'label-weight': 'Max Weight (kg)',
+                'label-threshold': 'Support Threshold',
+                'input-title': 'Input Data',
+                'dropzone-text': 'Drag and Drop / Click here to input manifest CSV',
+                'btn-optimize': 'Run Optimization',
+                'btn-export': 'Export Result Manifest',
+                'stat-vol-label': 'Used Volume',
+                'stat-weight-label': 'Total Weight',
+                'stat-dist-label': 'Travel Distance',
+                'stat-count-label': 'Total Items',
+                'stat-time-label': 'Process Time',
+                'cargo-placement-title': 'Cargo Placement',
+                'step-label': 'Loading <br> Step',
+                'bin-label': 'Bin <br> Index',
+                'no-placement': 'No placement recorded',
+                'route-map-title': 'Delivery Route Map',
+                'legend-depot': 'Depot',
+                'legend-dest': 'Destination',
+                'legend-start': 'Start',
+                'legend-route': 'Route',
+                'legend-back': 'Return',
+                'no-route': 'No delivery route yet',
+                'table-title': 'Loading Instructions',
+                'th-step': 'Step',
+                'th-id': 'Item ID',
+                'th-dim': 'Dimensions',
+                'th-weight': 'Weight',
+                'th-coord': 'Placement Coords [X, Y, Z]',
+                'table-empty-msg': 'Placement Results',
+                'unit-seconds': 'sec',
+                'stat-total-dist-label': 'Total Distance <br> All Containers'
+            }
+        };
+        
+        function updateLanguage(lang) {
+            currentLang = lang;
+
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active-lang');
+            });
+
+            const selectedBtn = document.getElementById('lang-' + lang);
+            if (selectedBtn) {
+                selectedBtn.classList.add('active-lang');
+            }
+
+            const elements = document.querySelectorAll('[data-key]');
+            
+            elements.forEach(el => {
+                const key = el.getAttribute('data-key');
+
+                if (key === 'dropzone-text' && currentFileName !== "") {
+                    const label = lang === 'id' ? 'File terpilih:' : 'Selected file:';
+                    el.innerHTML = `${label} <br> <span class="text-blue-400 font-bold">${currentFileName}</span>`;
+                } 
+                else if (translations[lang][key]) {
+                    el.innerHTML = translations[lang][key];
+                }
+            });
+
+            localStorage.setItem('preferredLang', lang);
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedLang = localStorage.getItem('preferredLang') || 'en';
+            updateLanguage(savedLang);
+        });
+
+        function limitInput(input, max) {
+            if (input.value === "") return;
+
+            const value = parseInt(input.value);
+
+            if (value > max) {
+                input.value = max;
+            }
+        }
+
+        function exportToCSV() {
+            if (!allBinsData || allBinsData.length === 0) {
+                alert(currentLang === 'id' ? "Tidak ada data untuk diekspor!" : "No data to export!");
+                return;
+            }
+
+            const headers = {
+                id: [
+                    "Nomor Bin", "Langkah", "ID Muatan", 
+                    "Panjang (L)", "Lebar (W)", "Tinggi (H)", 
+                    "Berat (kg)", "Posisi X", "Posisi Y", "Posisi Z"
+                ],
+                en: [
+                    "Bin Number", "Step", "Item ID", 
+                    "Length (L)", "Width (W)", "Height (H)", 
+                    "Weight (kg)", "Position X", "Position Y", "Position Z"
+                ]
+            };
+
+            const selectedHeaders = headers[currentLang] || headers['en'];
+            let csvContent = "\uFEFF";
+            csvContent += selectedHeaders.join(",") + "\n";
+
+            allBinsData.forEach((bin, binIdx) => {
+                const binNumber = binIdx + 1;
+                
+                bin.items.forEach((item, itemIdx) => {
+                    const stepNumber = itemIdx + 1;
+                    const cleanId = typeof item.id === 'number' ? Math.floor(item.id) : item.id;
+                    
+                    const dimL = item.l_orig;
+                    const dimW = item.w_orig;
+                    const dimH = item.h_orig;
+
+                    const posX = Math.round(item.pos3d[0]);
+                    const posY = Math.round(item.pos3d[1]);
+                    const posZ = Math.round(item.pos3d[2]);
+
+                    const row = [
+                        binNumber,
+                        stepNumber,
+                        cleanId,
+                        dimL,
+                        dimW,
+                        dimH,
+                        item.weight,
+                        posX,
+                        posY,
+                        posZ
+                    ];
+                    
+                    csvContent += row.join(",") + "\n";
+                });
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            
+            const now = new Date();
+            const datePart = now.toISOString().slice(0, 10);
+            const timePart = now.getHours().toString().padStart(2, '0') +
+                            now.getMinutes().toString().padStart(2, '0');
+
+            const timestamp = `${datePart}_${timePart}`;
+            const fileName = currentLang === 'id' ? `Manifest_Pengiriman_${timestamp}.csv` : `Delivery_Manifest_${timestamp}.csv`;
+
+            link.setAttribute("href", url);
+            link.setAttribute("download", fileName);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+            
+    </script>
+</html>
