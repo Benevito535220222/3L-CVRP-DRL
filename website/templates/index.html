@@ -161,18 +161,18 @@
                             <div class="col-span-2 grid grid-cols-2 gap-5 border-t border-slate-800 pt-4 mt-2">
                                 <div class="col-span-1">
                                     <label class="text-[12px] font-bold text-blue-400 uppercase tracking-wider">Depot X</label>
-                                    <input type="number" id="depot-x" value="0" min="0" max="9999"
+                                    <input type="number" id="depot-x" value="0" min="-9999" max="9999"
                                         oninput="limitInput(this, 9999)"
                                         onkeyup="limitInput(this, 9999)"
-                                        onkeypress="return (event.charCode >= 48 && event.charCode <= 57)"
+                                        onkeypress="return (event.charCode >= 48 && event.charCode <= 57) || event.charCode === 45"
                                         class="w-full mt-1.5 p-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white outline-none focus:border-blue-500 transition-all">
                                 </div>
                                 <div class="col-span-1">
                                     <label class="text-[12px] font-bold text-blue-400 uppercase tracking-wider">Depot Y</label>
-                                    <input type="number" id="depot-y" value="0" min="0" max="9999"
+                                    <input type="number" id="depot-y" value="0" min="-9999" max="9999"
                                         oninput="limitInput(this, 9999)"
                                         onkeyup="limitInput(this, 9999)"
-                                        onkeypress="return (event.charCode >= 48 && event.charCode <= 57)"
+                                        onkeypress="return (event.charCode >= 48 && event.charCode <= 57) || event.charCode === 45"
                                         class="w-full mt-1.5 p-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white outline-none focus:border-blue-500 transition-all">
                                 </div>
                             </div>

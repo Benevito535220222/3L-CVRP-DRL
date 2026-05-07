@@ -124,9 +124,9 @@ def _calculate_step_metrics(
     util_reward = (item_vol / bin_vol) + (0.5 * item_weight / max_weight)
     
     max_surf = max(orig_l * orig_w, orig_l * orig_h, orig_w * orig_h)
-    orientation_bonus = 0.5 * ((real_l * real_w) / max_surf)
+    orientation_bonus = 0.3 * ((real_l * real_w) / max_surf)
     
-    stack_bonus = 0.1 * (z_coord / grid_size) if z_coord > 0 else 0.0
+    stack_bonus = 0.2 * (z_coord / grid_size) if z_coord > 0 else 0.0
     
     if rank == 0:
         dist_added = 2 * np.sqrt(np.sum((new_dest - depot)**2))
