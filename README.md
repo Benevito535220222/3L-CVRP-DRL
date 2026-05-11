@@ -17,7 +17,6 @@ For inference, the trained model is used in a web-based interface or a localhost
 ### 2. Create Python Environment
 ```
 conda create --name lcvrp python=3.10
-conda activate lcvrp
 ```
 
 ### 3. Create New Folder
@@ -33,15 +32,17 @@ git clone https://github.com/benevito.535220222/3L-CVRP-DRL.git
 
 ### 5. Install the Required Library
 ```
+cd C:\LCVRP\3L-CVRP-DRL
+conda activate lcvrp
 pip install -r requirements.txt
 ```
 
 ### 6. Run the Program
 ```
-& "C:\Users\{USER}\miniconda3\envs\lcvrp\python.exe" website/app.py
+python website/app.py
 ```
 
-### 7. Open Browser
+### 7. Open in Browser
 ```
 http://127.0.0.1:5000/
 ```
