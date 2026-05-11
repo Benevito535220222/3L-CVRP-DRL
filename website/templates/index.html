@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3L-CVRP DRL</title>
+    <title>3L-CVRP DRL-MPPO</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
 
         ::-webkit-scrollbar { width: 8px; }
@@ -50,7 +51,7 @@
             transform: scale(0.8);
             transform-origin: top;
             width: 100%;
-            margin-bottom: -17%; 
+            margin-bottom: -37%; 
             float: left; 
         }
 
@@ -341,7 +342,7 @@
                                     </h3>
 
                                     <div class="flex items-center gap-3">
-                                        <button onclick="toggleMapLabels()" class="text-slate-500 hover:text-blue-400 transition-colors">
+                                        <button onclick="toggleMapLabels('drl')" class="text-slate-500 hover:text-blue-400 transition-colors">
                                             <i class="fas fa-minus text-[20px]"></i>
                                         </button>
                                     </div>                
@@ -388,7 +389,12 @@
 
                                                 <div class="flex items-center gap-2">
                                                     <div class="flex items-center">
-                                                        <div class="w-5 h-[4px] bg-[#3b82f6]"></div>
+                                                        <div class="w-5 h-[2px] bg-[#3b82f6]"></div>
+                                                        <div class="w-0 h-0 
+                                                            border-t-[5px] border-t-transparent 
+                                                            border-b-[5px] border-b-transparent 
+                                                            border-l-[8px] border-l-[#3b82f6]">
+                                                        </div>
                                                     </div>
                                                     <span data-key="legend-route" class="text-[12px] text-slate-400 uppercase font-bold tracking-wider">Rute</span>
                                                 </div>
@@ -450,25 +456,210 @@
                     </table>
                 </div>
             </section>
+
+            <div class="h-[1px] w-full bg-slate-800 my-4"></div>
+
+            <section class="glass-card rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex-grow flex flex-col">
+                <div class="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-800 border-b border-slate-800">
+                    
+                    <div class="p-6 flex flex-col h-full">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-[12px] font-bold text-blue-400 uppercase tracking-[0.2em] flex items-center mb-0">
+                                <i class="fas fa-cube mr-2"></i> <span data-key="cargo-placement-title-grb">Penempatan Muatan (Gurobi)</span>
+                            </h3>
+
+                            <div class="flex items-center gap-3">
+                                <button onclick="toggleFullScreen('three-container-grb')" class="text-slate-500 hover:text-blue-400 transition-colors">
+                                    <i class="fas fa-expand text-[20px]"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="three-container-grb" class="relative w-full h-[600px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800">
+                            <div id="item-id-display-grb" class="absolute top-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+                                <div class="bg-slate-900/80 backdrop-blur-md border border-white/10 px-6 py-2 rounded-2xl shadow-2xl flex flex-col items-center gap-0">
+                                    <span data-key="th-id" class="text-[12px] text-slate-500 uppercase font-bold tracking-[0.2em] leading-none mb-1">ID Muatan</span>
+                                    <span id="current-item-id-grb" class="text-blue-400 font-mono font-bold text-xl tracking-tight">-</span>
+                                </div>
+                            </div>
+
+                            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-row items-center gap-4 w-fit">
+                                <div class="flex items-center gap-3 bg-slate-900/90 p-2 rounded-2xl border border-white/10 backdrop-blur-md shadow-xl">
+                                    <button id="btn-prev-grb" class="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-blue-600 text-white rounded-xl transition-all shadow-lg">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <div class="px-2 text-center min-w-[80px]">
+                                        <div data-key="step-label" class="text-[12px] text-slate-500 uppercase font-bold tracking-wider text-center">Langkah <br> Muat</div>
+                                        <div id="step-counter-grb" class="text-blue-400 font-mono font-bold text-base">0 / 0</div>
+                                    </div>
+                                    <button id="btn-next-grb" class="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-blue-600 text-white rounded-xl transition-all shadow-lg">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+
+                                <div class="flex items-center gap-3 bg-slate-900/90 p-2 rounded-2xl border border-emerald-500/20 backdrop-blur-md shadow-xl shadow-emerald-500/5">
+                                    <button id="btn-bin-prev-grb" class="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-emerald-600 text-white rounded-xl transition-all shadow-lg">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <div class="px-2 text-center min-w-[80px]">
+                                        <div data-key="bin-label" class="text-[12px] text-slate-500 uppercase font-bold tracking-wider text-center">Bin <br> Indeks</div>
+                                        <div id="bin-counter-grb" class="text-emerald-400 font-mono font-bold text-base">0 / 0</div>
+                                    </div>
+                                    <button id="btn-bin-next-grb" class="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-emerald-600 text-white rounded-xl transition-all shadow-lg">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="three-overlay-grb" class="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/80">
+                                <div class="text-center">
+                                    <i class="fas fa-box-open text-4xl text-slate-700 mb-3 block"></i>
+                                    <p data-key="no-placement" class="text-slate-500 text-sm">Belum ada penempatan</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-6 flex flex-col h-full">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-[12px] font-bold text-emerald-400 uppercase tracking-[0.2em] flex items-center mb-0">
+                                <i class="fas fa-route mr-2"></i> <span data-key="route-map-title-grb">Peta Rute Pengiriman (Gurobi)</span>
+                            </h3>
+
+                            <div class="flex items-center gap-3">
+                                <button onclick="toggleMapLabels('grb')" class="text-slate-500 hover:text-blue-400 transition-colors" title="Toggle Labels">
+                                    <i class="fas fa-minus text-[20px]"></i>
+                                </button>
+                            </div> 
+                        </div>
+                        
+                        <div id="route-panel-container-grb" class="relative w-full h-[600px] bg-slate-950 rounded-xl overflow-hidden flex flex-grow border border-slate-800">
+                            <div class="absolute inset-0 opacity-[0.05]" style="background-image: radial-gradient(#3b82f6 1px, transparent 1px); background-size: 24px 24px;"></div>
+                            
+                            <canvas id="vrpCanvas-grb" class="w-full h-full relative z-10"></canvas>
+
+                            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 w-fit">
+                                <div class="bg-slate-900/90 px-6 py-3 rounded-2xl border border-white/10 backdrop-blur-md shadow-xl flex flex-col gap-3">
+                                    
+                                    <div class="flex items-center justify-center gap-6">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-3 h-3 bg-red-500 rounded-sm shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
+                                            <span data-key="legend-depot" class="text-[12px] text-slate-300 uppercase font-bold tracking-wider">Depot</span>
+                                        </div>
+                                        
+                                        <div class="w-[1px] h-3 bg-slate-700"></div>
+
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2.5 h-2.5 rounded-full bg-[#10b981] shadow-[0_0_8px_#10b981]"></div>
+                                            <span data-key="legend-dest" class="text-[12px] text-slate-300 uppercase font-bold tracking-wider">Destinasi</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="h-[1px] w-full bg-white/5"></div>
+
+                                    <div class="flex items-center justify-center gap-6">
+                                        <div class="flex items-center gap-2">
+                                            <div class="flex items-center">
+                                                <div class="w-5 h-[2px] bg-[#facc15]"></div>
+                                                <div class="w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-l-[8px] border-l-[#facc15]"></div>
+                                            </div>
+                                            <span data-key="legend-start" class="text-[12px] text-slate-400 uppercase font-bold tracking-wider">Awal</span>
+                                        </div>
+
+                                        <div class="w-[1px] h-3 bg-slate-800"></div>
+
+                                        <div class="flex items-center gap-2">
+                                            <div class="flex items-center">
+                                                <div class="w-5 h-[2px] bg-[#3b82f6]"></div>
+                                                <div class="w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-l-[8px] border-l-[#3b82f6]"></div>
+                                            </div>
+                                            <span data-key="legend-route" class="text-[12px] text-slate-400 uppercase font-bold tracking-wider">Rute</span>
+                                        </div>
+
+                                        <div class="w-[1px] h-3 bg-slate-800"></div>
+                                        
+                                        <div class="flex items-center gap-2">
+                                            <div class="flex items-center">
+                                                <div class="w-5 h-[2px] bg-[#ffffff]"></div>
+                                                <div class="w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-l-[8px] border-l-[#ffffff]"></div>
+                                            </div>
+                                            <span data-key="legend-back" class="text-[12px] text-slate-400 uppercase font-bold tracking-wider">Kembali</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="route-overlay-grb" class="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/80">
+                                <div class="text-center">
+                                    <i class="fas fa-map-marked-alt text-4xl text-slate-700 mb-3 block"></i>
+                                    <p data-key="no-route" class="text-slate-500 text-sm">Belum ada rute pengiriman</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        <section class="glass-card rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex-grow flex flex-col">
+            <div class="p-6 bg-slate-900/20 flex flex-col gap-6">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-[12px] font-bold text-amber-400 uppercase tracking-[0.2em] flex items-center">
+                        <i class="fas fa-chart-pie mr-2"></i> <span data-key="chart">Grafik Perbandingan MPPO dengan Gurobi</span>
+                    </h3>
+                    
+                    <button onclick="clearChartImage()" class="text-slate-500 hover:text-red-500 transition-colors p-1" title="Hapus Grafik">
+                        <i class="fas fa-trash-alt text-lg"></i>
+                    </button>
+                </div>
+
+                <div class="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden relative group">
+                    <div class="p-0 w-full min-h-[1150px] flex items-center justify-center">
+                        <img id="chart-utilization-backend" src="" alt="Chart Statistik" 
+                            class="w-full h-full object-contain transition-opacity duration-300 hidden">
+                            
+                        <div id="chart-placeholder" class="text-slate-400 flex flex-col items-center absolute">
+                            <i class="fas fa-chart-bar text-4xl text-slate-700 mb-3 block"></i>
+                            <span data-key="vis-waiting" class="text-slate-500 text-sm">
+                                Menunggu Visualisasi dari Backend...
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
         </main>
     </div>
 </body>
 
     <script>
+        const socket = io('http://localhost:5000');
+
         let scene, camera, renderer, container_mesh;
         let item_group = new THREE.Group();
         let isMouseDown = false;
         let mouseX = 0, mouseY = 0;
         let targetRotationX = 0.5, targetRotationY = -0.5;
 
+        let sceneGrb, cameraGrb, rendererGrb, itemGroupGrb, containerMeshGrb;
+        let cameraTargetGrb = new THREE.Vector3(0, 0, 0);
+        let targetRotationXGrb = 0.5, targetRotationYGrb = 0.5;
+        let isMouseDownGrb = false, isRightMouseDownGrb = false;
+        let mouseXGrb = 0, mouseYGrb = 0;
+        let currentBinDimsGrb = { l: 0, w: 0, h: 0 };
+
         let allBinsData = []; 
         let currentBinIndex = 0;
         let currentStep = 0;
         let currentBinDims = { l: 0, w: 0, h: 0 };
 
+        window.allGurobiBins = [];
+        window.currentBinIndexGrb = 0;
+        window.currentStepIndexGrb = 0;
+
         let dropzone, fileInput, supportSlider, thresholdInput;
         let currentFileName = "";
-        let showMapLabels = true;
+        let showLabelsDRL = true;
+        let showLabelsGRB = true;
 
         let mapTransform = { x: 0, y: 0, scale: 1 };
         let isDragging = false;
@@ -492,6 +683,20 @@
         const btnPrev = document.getElementById('btn-prev');
         let holdTimer;
         let isHold = false;
+
+        let currentBinIndexGrb = 0;
+        let currentStepGrb = 0;
+        let isHoldGrb = false;
+        let holdTimerGrb;
+        let isBinHoldGrb = false;
+        let binHoldTimerGrb;
+        window.allBinsDataGrb = [];
+
+        const btnNextGrb = document.getElementById('btn-next-grb');
+        const btnPrevGrb = document.getElementById('btn-prev-grb');
+        const btnBinNextGrb = document.getElementById('btn-bin-next-grb');
+        const btnBinPrevGrb = document.getElementById('btn-bin-prev-grb');
+        
 
         function initThree() {
             const container = document.getElementById('three-container');
@@ -693,21 +898,6 @@
             renderer.render(scene, camera);
         }
 
-        function changeBin(delta, jumpTo = null) {
-            let newIndex;
-            
-            if (jumpTo !== null) {
-                newIndex = jumpTo;
-            } else {
-                newIndex = currentBinIndex + delta;
-            }
-
-            if (newIndex >= 0 && newIndex < allBinsData.length) {
-                currentBinIndex = newIndex;
-                renderCurrentBin();
-            }
-        }
-
         function setupBinHoldEvent(el, delta, jumpTargetType) {
             const startEvent = (e) => {
                 if (e.type === 'touchstart') e.preventDefault(); 
@@ -742,29 +932,6 @@
         if (btnBinNext) setupBinHoldEvent(btnBinNext, 1, 'end');
         if (btnBinPrev) setupBinHoldEvent(btnBinPrev, -1, 'start');
 
-        function renderCurrentBin() {
-            const binData = allBinsData[currentBinIndex];
-            const items = binData.items;
-
-            item_group.clear();
-            currentStep = items.length;
-
-            const colors = [0x3b82f6, 0x10b981, 0x8b5cf6, 0xf59e0b, 0xef4444];
-            items.forEach((item, i) => {
-                addBoxToScene(item, colors[i % colors.length]);
-            });
-
-            document.getElementById('bin-counter').textContent = `${currentBinIndex + 1} / ${allBinsData.length}`;
-            document.getElementById('step-counter').textContent = `${currentStep} / ${items.length}`;
-            document.getElementById('stat-vol').innerHTML = `${binData.stats.volume_eff.replace('%', '')} <span class="text-sm text-slate-600">%</span>`;            document.getElementById('stat-count').textContent = binData.stats.count;
-            document.getElementById('stat-weight').innerHTML = `${binData.stats.total_weight} <span class="text-sm text-slate-600">kg</span>`;
-            document.getElementById('stat-dist').innerHTML = `${binData.stats.distance} <span class="text-sm text-slate-600">m</span>`;
-
-            changeStep(0);
-            updateTable(items);
-            drawVRPMap(items);
-        }
-
         function changeStep(delta, jumpTo = null) {
             const items = allBinsData[currentBinIndex]?.items || [];
             if (items.length === 0) return;
@@ -792,6 +959,21 @@
             }
 
             drawVRPMap(items.slice(0, currentStep));
+        }
+
+        function changeBin(delta, jumpTo = null) {
+            let newIndex;
+            
+            if (jumpTo !== null) {
+                newIndex = jumpTo;
+            } else {
+                newIndex = currentBinIndex + delta;
+            }
+
+            if (newIndex >= 0 && newIndex < allBinsData.length) {
+                currentBinIndex = newIndex;
+                renderCurrentBin();
+            }
         }
 
         function setupHoldEvent(el, delta, jumpTargetType) {
@@ -829,6 +1011,29 @@
 
         if (btnNext) setupHoldEvent(btnNext, 1, 'end');
         if (btnPrev) setupHoldEvent(btnPrev, -1, 'start');
+
+        function renderCurrentBin() {
+            const binData = allBinsData[currentBinIndex];
+            const items = binData.items;
+
+            item_group.clear();
+            currentStep = items.length;
+
+            const colors = [0x3b82f6, 0x10b981, 0x8b5cf6, 0xf59e0b, 0xef4444];
+            items.forEach((item, i) => {
+                addBoxToScene(item, colors[i % colors.length]);
+            });
+
+            document.getElementById('bin-counter').textContent = `${currentBinIndex + 1} / ${allBinsData.length}`;
+            document.getElementById('step-counter').textContent = `${currentStep} / ${items.length}`;
+            document.getElementById('stat-vol').innerHTML = `${binData.stats.volume_eff.replace('%', '')} <span class="text-sm text-slate-600">%</span>`;            document.getElementById('stat-count').textContent = binData.stats.count;
+            document.getElementById('stat-weight').innerHTML = `${binData.stats.total_weight} <span class="text-sm text-slate-600">kg</span>`;
+            document.getElementById('stat-dist').innerHTML = `${binData.stats.distance} <span class="text-sm text-slate-600">m</span>`;
+
+            changeStep(0);
+            updateTable(items);
+            drawVRPMap(items);
+        }
 
         async function runSimulation() {
             const btn = document.getElementById('runBtn');
@@ -922,7 +1127,9 @@
                 alert("Error koneksi ke server."); 
             } finally { 
                 btn.disabled = false; 
-                btn.innerHTML = '<i class="fas fa-play mr-2"></i>Jalankan Optimasi'; 
+                
+                const btnText = translations[currentLang]['btn-optimize'];
+                btn.innerHTML = `<i class="fas fa-play mr-2"></i><span data-key="btn-optimize">${btnText}</span>`; 
             }
         }
 
@@ -1044,15 +1251,28 @@
                 drawArrowhead(ctx, firstItemX, firstItemY, depotPos.x, depotPos.y, '#ffffff');
 
                 if (dataToDraw.length > 1) {
-                    ctx.beginPath();
                     ctx.strokeStyle = '#3b82f6';
-                    ctx.moveTo(getScreenX(dataToDraw[0].x), getScreenY(dataToDraw[0].y));
-                    for (let i = 1; i < dataToDraw.length; i++) {
-                        ctx.lineTo(getScreenX(dataToDraw[i].x), getScreenY(dataToDraw[i].y));
-                    }
-                    ctx.stroke();
-                }
+                    ctx.lineWidth = 2;
 
+                    for (let i = 1; i < dataToDraw.length; i++) {
+                        const prevX = getScreenX(dataToDraw[i - 1].x);
+                        const prevY = getScreenY(dataToDraw[i - 1].y);
+                        const currX = getScreenX(dataToDraw[i].x);
+                        const currY = getScreenY(dataToDraw[i].y);
+
+                        ctx.beginPath();
+                        ctx.moveTo(prevX, prevY);
+                        ctx.lineTo(currX, currY);
+                        ctx.stroke();
+
+                        const distance = Math.sqrt(Math.pow(currX - prevX, 2) + Math.pow(currY - prevY, 2));
+                        
+                        if (distance > 2) {
+                            drawArrowhead(ctx, currX, currY, prevX, prevY, '#3b82f6');
+                        }
+                    }
+                }
+                                
                 const lastItem = dataToDraw[dataToDraw.length - 1];
                 const lastX = getScreenX(lastItem.x);
                 const lastY = getScreenY(lastItem.y);
@@ -1092,8 +1312,8 @@
                         return strId.substring(0, 2) + "..." + strId.slice(-3);
                     };
 
-                    if (showMapLabels) {
-                        ctx.font = "bold 11px Inter, sans-serif";
+                    if (showLabelsDRL) {
+                        ctx.font = "bold 12px Inter, sans-serif";
                         const idsPerLine = 2;
                         const lines = [];
 
@@ -1114,7 +1334,7 @@
                             ctx.fillStyle = 'rgba(2, 6, 23, 0.7)';
                             ctx.fillRect(textX - 2, textY - 10, textWidth + 4, 13);
 
-                            ctx.fillStyle = '#cbd5e1';
+                            ctx.fillStyle = '#ffffff';;
                             ctx.fillText(lineText, textX, textY);
                         });
                     }
@@ -1126,7 +1346,7 @@
                 ctx.fillRect(depotPos.x - 8, depotPos.y - 8, 16, 16);
                 ctx.shadowBlur = 0;
                 
-                if (showMapLabels) {
+                if (showLabelsDRL) {
                     ctx.fillStyle = '#ffffff';
                     ctx.font = "bold 12px Inter, sans-serif";
                     ctx.fillText("DEPOT", depotPos.x - 20, depotPos.y + 25);
@@ -1134,17 +1354,6 @@
                 ctx.restore();
             }
         }         
-               
-        function toggleMapLabels() {
-            if (!window.lastProcessedItems || window.lastProcessedItems.length === 0) {
-                console.log("Simulasi belum dijalankan, toggle dinonaktifkan.");
-                return; 
-            }
-
-            showMapLabels = !showMapLabels;
-            
-            drawVRPMap(); 
-        }
         
         window.onload = () => {
             dropzone = document.getElementById('dropzone');
@@ -1355,6 +1564,30 @@
             }
         }
 
+        document.addEventListener('fullscreenchange', () => {
+            const containerGrb = document.getElementById('three-container-grb');
+            const containerStd = document.getElementById('three-container');
+
+            if (rendererGrb && cameraGrb && containerGrb) {
+                const width = containerGrb.clientWidth;
+                const height = containerGrb.clientHeight;
+                
+                cameraGrb.aspect = width / height;
+                cameraGrb.updateProjectionMatrix();
+                rendererGrb.setSize(width, height);
+                
+                if (typeof currentBinDimsGrb !== 'undefined') {
+                    autoFitCameraGurobi(currentBinDimsGrb.l, currentBinDimsGrb.w, currentBinDimsGrb.h);
+                }
+            }
+
+            if (typeof renderer !== 'undefined' && renderer && containerStd) {
+                renderer.setSize(containerStd.clientWidth, containerStd.clientHeight);
+                camera.aspect = containerStd.clientWidth / containerStd.clientHeight;
+                camera.updateProjectionMatrix();
+            }
+        });
+
         const translations = {
             'id': {
                 'change-lang': 'Ubah  <br> Bahasa',
@@ -1373,11 +1606,11 @@
                 'stat-dist-label': 'Jarak Tempuh',
                 'stat-count-label': 'Jumlah Muatan',
                 'stat-time-label': 'Waktu Proses',
-                'cargo-placement-title': 'Penempatan Muatan',
+                'cargo-placement-title': 'Penempatan Muatan (MPPO)',
                 'step-label': 'Langkah <br> Muat',
                 'bin-label': 'Bin <br> Indeks',
                 'no-placement': 'Belum ada penempatan',
-                'route-map-title': 'Peta Rute Pengiriman',
+                'route-map-title': 'Peta Rute Pengiriman (MPPO)',
                 'legend-depot': 'Depot',
                 'legend-dest': 'Destinasi',
                 'legend-start': 'Awal',
@@ -1392,7 +1625,11 @@
                 'th-coord': 'Koord Penempatan [X, Y, Z]',
                 'table-empty-msg': 'Hasil Penempatan',
                 'unit-seconds': 'detik',
-                'stat-total-dist-label': 'Total Jarak <br> Semua Kontainer'
+                'stat-total-dist-label': 'Total Jarak <br> Semua Kontainer',
+                'cargo-placement-title-grb': 'Penempatan Muatan (Gurobi)',
+                'route-map-title-grb': 'Peta Rute Pengiriman (Gurobi)',
+                'chart': 'Grafik Perbandingan MPPO dengan Gurobi',
+                'vis-waiting': 'Menunggu Visualisasi dari Backend...'
             },
             'en': {
                 'change-lang': 'Change <br> Language',
@@ -1411,11 +1648,11 @@
                 'stat-dist-label': 'Travel Distance',
                 'stat-count-label': 'Total Items',
                 'stat-time-label': 'Process Time',
-                'cargo-placement-title': 'Cargo Placement',
+                'cargo-placement-title': 'Cargo Placement (MPPO)',
                 'step-label': 'Loading <br> Step',
                 'bin-label': 'Bin <br> Index',
                 'no-placement': 'No placement recorded',
-                'route-map-title': 'Delivery Route Map',
+                'route-map-title': 'Delivery Route Map (MPPO)',
                 'legend-depot': 'Depot',
                 'legend-dest': 'Destination',
                 'legend-start': 'Start',
@@ -1430,7 +1667,11 @@
                 'th-coord': 'Placement Coords [X, Y, Z]',
                 'table-empty-msg': 'Placement Results',
                 'unit-seconds': 'sec',
-                'stat-total-dist-label': 'Total Distance <br> All Containers'
+                'stat-total-dist-label': 'Total Distance <br> All Containers',
+                'cargo-placement-title-grb': 'Cargo Placement (Gurobi)',
+                'route-map-title-grb': 'Delivery Route Map (Gurobi)',
+                'chart': 'Comparison Chart of MPPO with Gurobi',
+                'vis-waiting': 'Waiting for Visualization from Backend...'
             }
         };
         
@@ -1553,5 +1794,480 @@
             document.body.removeChild(link);
         }
             
+        socket.on('connect', () => {
+            console.log('Terhubung ke Server SocketIO');
+        });
+
+        socket.on('gurobi_finished', function(response) {
+            console.log("Data diterima dari Backend:", response); 
+            
+            if (!response.bins || response.bins.length === 0) {
+                console.error("Data bins kosong!");
+                return;
+            }
+
+            updateChartImage('chart-utilization-backend', response.image);
+
+            window.allBinsDataGrb = response.bins; 
+            window.currentBinIndexGrb = 0;
+            window.currentStepGrb = response.bins[0].items.length; 
+
+            document.getElementById('three-overlay-grb').classList.add('hidden');
+            document.getElementById('route-overlay-grb').classList.add('hidden');
+
+            renderGurobiState();
+        });
+                
+        function renderGurobiState() {
+            const binData = window.allBinsDataGrb[window.currentBinIndexGrb];
+            
+            if (!binData) {
+                console.error("Data Bin Gurobi tidak ditemukan! Cek:", window.currentBinIndexGrb);
+                return;
+            }
+
+            if (!sceneGrb) initThreeGurobi();
+
+            if (itemGroupGrb) {
+                while(itemGroupGrb.children.length > 0) { 
+                    itemGroupGrb.remove(itemGroupGrb.children[0]); 
+                }
+            }
+
+            const l = parseFloat(document.getElementById('bin-l').value) || 1200;
+            const w = parseFloat(document.getElementById('bin-w').value) || 230;
+            const h = parseFloat(document.getElementById('bin-h').value) || 240;
+
+            createBinGurobi(l, w, h);
+
+            binData.items.forEach((item, index) => {
+                if (index < window.currentStepGrb) {
+                    addBoxToGurobiScene(item, 0x3b82f6);
+                }
+            });
+
+            drawVRPMapOnCanvas(binData, document.getElementById('vrpCanvas-grb'));
+            
+            const idDisplay = document.getElementById('current-item-id-grb');
+            if (idDisplay) {
+                const currentItem = binData.items[window.currentStepGrb - 1];
+                idDisplay.innerText = currentItem ? (currentItem.original_id || currentItem.id) : "-";
+            }
+
+            const totalBins = window.allBinsDataGrb.length;
+            const currentItemsCount = binData.items.length;
+            document.getElementById('bin-counter-grb').textContent = `${window.currentBinIndexGrb + 1} / ${totalBins}`;
+            document.getElementById('step-counter-grb').textContent = `${window.currentStepGrb} / ${currentItemsCount}`;
+        }
+                
+        function initThreeGurobi() {
+            const container = document.getElementById('three-container-grb');
+            if (!container || rendererGrb) return;
+
+            sceneGrb = new THREE.Scene();
+            sceneGrb.background = new THREE.Color(0x020617);
+            
+            cameraGrb = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 10000);
+            
+            rendererGrb = new THREE.WebGLRenderer({ antialias: true });
+            rendererGrb.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(rendererGrb.domElement);
+
+            sceneGrb.add(new THREE.AmbientLight(0xffffff, 0.8)); 
+            const sunLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            sunLight.position.set(1000, 1000, 1000);
+            sceneGrb.add(sunLight);
+
+            itemGroupGrb = new THREE.Group();
+            sceneGrb.add(itemGroupGrb);
+
+            container.addEventListener('mousemove', (e) => {
+                if (isMouseDownGrb) {
+                    targetRotationYGrb += (e.clientX - mouseXGrb) * 0.01;
+                    targetRotationXGrb += (e.clientY - mouseYGrb) * 0.01;
+                    mouseXGrb = e.clientX;
+                    mouseYGrb = e.clientY;
+                }
+            });
+            container.addEventListener('mousedown', (e) => { 
+                isMouseDownGrb = true; 
+                mouseXGrb = e.clientX; 
+                mouseYGrb = e.clientY; 
+            });
+            window.addEventListener('mouseup', () => isMouseDownGrb = false);
+
+            animateGurobi();
+        }
+                
+        function animateGurobi() {
+            requestAnimationFrame(animateGurobi);
+            if (itemGroupGrb && containerMeshGrb) {
+                itemGroupGrb.rotation.y += (targetRotationYGrb - itemGroupGrb.rotation.y) * 0.1;
+                itemGroupGrb.rotation.x += (targetRotationXGrb - itemGroupGrb.rotation.x) * 0.1;
+                containerMeshGrb.rotation.copy(itemGroupGrb.rotation);
+            }
+            rendererGrb.render(sceneGrb, cameraGrb);
+        }
+        
+        function updateChartImage(elementId, base64Data) {
+            const img = document.getElementById(elementId);
+            if (img && base64Data) {
+                img.src = 'data:image/png;base64,' + base64Data;
+                img.classList.remove('hidden');
+                img.nextElementSibling.classList.add('hidden');
+            }
+        }
+        
+        function drawVRPMapOnCanvas(binData, canvas) {
+            if (!canvas || !binData || !binData.items) return;
+
+            window.lastBinData = binData;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.setTransform(1, 0, 0, 1, 0, 0); 
+            
+            if (canvas.width !== canvas.offsetWidth || canvas.height !== canvas.offsetHeight) {
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const drawArrow = (context, fromx, fromy, tox, toy, color) => {
+                const headlen = 12;  
+                const offset = 5;  
+                const dx = tox - fromx;
+                const dy = toy - fromy;
+                const angle = Math.atan2(dy, dx);
+
+                const tipX = tox - offset * Math.cos(angle);
+                const tipY = toy - offset * Math.sin(angle);
+
+                context.save();
+                context.setLineDash([]); 
+                context.beginPath();
+                
+                context.moveTo(tipX, tipY);
+                context.lineTo(tipX - headlen * Math.cos(angle - Math.PI / 6), tipY - headlen * Math.sin(angle - Math.PI / 6));
+                context.lineTo(tipX - headlen * Math.cos(angle + Math.PI / 6), tipY - headlen * Math.sin(angle + Math.PI / 6));
+                
+                context.closePath();
+                context.fillStyle = color;
+                context.fill();
+                context.restore();
+            };
+
+            ctx.save();
+            if (typeof mapTransform !== 'undefined') {
+                ctx.translate(mapTransform.x, mapTransform.y);
+                ctx.scale(mapTransform.scale, mapTransform.scale);
+            }
+
+            const items = binData.items;
+            const DEPOT_ID = "-1";
+            const route = binData.route.map(String);
+            const forceShowLabels = showLabelsGRB; 
+
+            const depotX = parseFloat(document.getElementById('depot-x')?.value) || 0;
+            const depotY = parseFloat(document.getElementById('depot-y')?.value) || 0;
+
+            const nodeCoords = { [DEPOT_ID]: { x: depotX, y: depotY } };
+            items.forEach(it => {
+                const custId = String(it.customer);
+                if (custId !== DEPOT_ID) {
+                    nodeCoords[custId] = { x: it.dest_x, y: it.dest_y };
+                }
+            });
+
+            const allX = Object.values(nodeCoords).map(n => n.x);
+            const allY = Object.values(nodeCoords).map(n => n.y);
+            const minX = Math.min(...allX), maxX = Math.max(...allX);
+            const minY = Math.min(...allY), maxY = Math.max(...allY);
+
+            const padding = canvas.width * 0.15;
+            const getX = (val) => padding + ((val - minX) / (maxX - minX || 1)) * (canvas.width - padding * 2);
+            const getY = (val) => (canvas.height - padding) - ((val - minY) / (maxY - minY || 1)) * (canvas.height - padding * 2);
+
+            const currentStep = window.currentStepGrb || 0;
+            const currentItem = items[currentStep - 1];
+            const currentCustomer = currentItem ? String(currentItem.customer) : DEPOT_ID;
+            const stopIndex = route.indexOf(currentCustomer);
+
+            ctx.lineWidth = 3;
+            for (let i = 0; i < route.length - 1; i++) {
+                const fromNode = route[i];
+                const toNode = route[i + 1];
+                const start = nodeCoords[fromNode];
+                const end = nodeCoords[toNode];
+
+                if (start && end) {
+                    const x1 = getX(start.x), y1 = getY(start.y);
+                    const x2 = getX(end.x), y2 = getY(end.y);
+
+                    let strokeColor = '#3b82f6'; 
+                    const isFutureRoute = i >= stopIndex && stopIndex !== -1;
+
+                    if (fromNode === DEPOT_ID) {
+                        strokeColor = '#ffffff'; 
+                    } else if (toNode === DEPOT_ID) {
+                        strokeColor = '#facc15'; 
+                    } else if (isFutureRoute) {
+                        strokeColor = 'rgba(255, 255, 255, 0.2)'; 
+                    }
+                    
+                    ctx.setLineDash([5, 5]); 
+
+                    ctx.beginPath();
+                    ctx.strokeStyle = strokeColor;
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+
+                    drawArrow(ctx, x2, y2, x1, y1, strokeColor);
+                }
+            }
+            ctx.setLineDash([]); 
+
+            route.forEach(nodeId => {
+                if (nodeId === DEPOT_ID) return; 
+                const pos = nodeCoords[nodeId];
+                if (!pos) return;
+
+                const sx = getX(pos.x), sy = getY(pos.y);
+                const nodeIdxInRoute = route.indexOf(nodeId);
+                const isReached = nodeIdxInRoute <= stopIndex && stopIndex !== -1;
+
+                ctx.fillStyle = isReached ? '#10b981' : '#475569';
+                ctx.beginPath();
+                ctx.arc(sx, sy, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (forceShowLabels) {
+                    ctx.textAlign = "left";
+                    ctx.font = "bold 12px Inter, sans-serif";
+                    const label = "ID: " + nodeId;
+                    const textWidth = ctx.measureText(label).width;
+                    
+                    ctx.fillStyle = 'rgba(2, 6, 23, 0.8)';
+                    ctx.fillRect(sx + 10, sy - 12, textWidth + 6, 16);
+                    
+                    ctx.fillStyle = isReached ? '#ffffff' : '#cbd5e1';
+                    ctx.fillText(label, sx + 13, sy);
+                }
+            });
+
+            const dPos = nodeCoords[DEPOT_ID];
+            if (dPos) {
+                const dx = getX(dPos.x), dy = getY(dPos.y);
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(dx - 8, dy - 8, 16, 16);
+                if (forceShowLabels) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = "bold 12px Inter, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText("DEPOT", dx, dy + 25);
+                }
+            }
+
+            ctx.restore();
+        }  
+                
+        function toggleMapLabels(target) {
+            if (target === 'drl') {
+                showLabelsDRL = !showLabelsDRL;
+                drawVRPMap(); 
+            } 
+            else if (target === 'grb') {
+                showLabelsGRB = !showLabelsGRB;
+                const canvasGrb = document.getElementById('vrpCanvas-grb');
+                if (window.lastBinData && canvasGrb) {
+                    drawVRPMapOnCanvas(window.lastBinData, canvasGrb);
+                }
+            }
+        }
+                
+        function createBinGurobi(l, w, h) {
+            if (containerMeshGrb) sceneGrb.remove(containerMeshGrb);
+            
+            currentBinDimsGrb = { l, w, h };
+
+            const geometry = new THREE.BoxGeometry(w, h, l); 
+            const edges = new THREE.EdgesGeometry(geometry);
+            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ 
+                color: 0x10b981, 
+                transparent: true, 
+                opacity: 0.5 
+            }));
+            
+            const floor = new THREE.Mesh(
+                new THREE.PlaneGeometry(w, l),
+                new THREE.MeshBasicMaterial({ 
+                    color: 0x064e3b, 
+                    side: THREE.DoubleSide, 
+                    transparent: true, 
+                    opacity: 0.4,
+                    depthWrite: false,
+                    polygonOffset: true,
+                    polygonOffsetFactor: 2,
+                    polygonOffsetUnits: 1
+                })
+            );
+            floor.rotation.x = Math.PI/2;
+            floor.position.y = -h/2; 
+
+            const doorGeom = new THREE.PlaneGeometry(w, h);
+            const doorMat = new THREE.MeshBasicMaterial({
+                color: 0xef4444, 
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.3,
+                depthWrite: true, 
+                polygonOffset: true,
+                polygonOffsetFactor: 1,
+                polygonOffsetUnits: 1
+            });
+            const door = new THREE.Mesh(doorGeom, doorMat);
+            
+            door.position.z = l / 2;
+            
+            const doorEdges = new THREE.EdgesGeometry(doorGeom);
+            const doorLine = new THREE.LineSegments(doorEdges, new THREE.LineBasicMaterial({ color: 0xef4444 }));
+            door.add(doorLine);
+
+            containerMeshGrb = new THREE.Group();
+            containerMeshGrb.add(line); 
+            containerMeshGrb.add(floor);
+            containerMeshGrb.add(door); 
+            
+            sceneGrb.add(containerMeshGrb);
+
+            autoFitCameraGurobi(l, w, h);
+        }
+                
+        function addBoxToGurobiScene(item, color) {
+            const iL = parseFloat(item.w); 
+            const iW = parseFloat(item.h); 
+            const iH = parseFloat(item.d); 
+
+            const geometry = new THREE.BoxGeometry(iW, iH, iL); 
+            const material = new THREE.MeshPhongMaterial({ color: color, transparent: true, opacity: 0.8 });
+            const mesh = new THREE.Mesh(geometry, material);
+
+            const posX = (parseFloat(item.y) + iW / 2) - (currentBinDimsGrb.w / 2);
+            
+            const posY = (parseFloat(item.z) + iH / 2) - (currentBinDimsGrb.h / 2);
+            
+            const posZ = (parseFloat(item.x) + iL / 2) - (currentBinDimsGrb.l / 2);
+
+            mesh.position.set(posX, posY, posZ);
+
+            const edgeGeom = new THREE.EdgesGeometry(geometry);
+            mesh.add(new THREE.LineSegments(edgeGeom, new THREE.LineBasicMaterial({ color: 0xffffff })));
+
+            itemGroupGrb.add(mesh);
+        }
+       
+        function autoFitCameraGurobi(l, w, h) {
+            const maxDim = Math.max(l, w, h);
+            cameraGrb.position.set(maxDim * 1.5, maxDim * 1.2, maxDim * 1.5);
+            cameraGrb.lookAt(0, 0, 0);
+        }
+
+        function changeStepGurobi(delta, jumpTo = null) {
+            const items = window.allBinsDataGrb[window.currentBinIndexGrb]?.items || [];
+            if (items.length === 0) return;
+
+            if (jumpTo !== null) {
+                window.currentStepGrb = jumpTo;
+            } else {
+                window.currentStepGrb = Math.max(0, Math.min(items.length, window.currentStepGrb + delta));
+            }
+
+            renderGurobiState();
+        }
+
+        function changeBinGurobi(delta, jumpTo = null) {
+            let newIndex = (jumpTo !== null) ? jumpTo : window.currentBinIndexGrb + delta;
+
+            if (newIndex >= 0 && newIndex < window.allBinsDataGrb.length) {
+                window.currentBinIndexGrb = newIndex;
+                window.currentStepGrb = window.allBinsDataGrb[newIndex].items.length; 
+                renderGurobiState();
+            }
+        }
+                
+        function setupHoldEventGrb(el, delta, jumpTargetType) {
+            const startEvent = (e) => {
+                if (e.type === 'touchstart') e.preventDefault();
+                isHoldGrb = false;
+                holdTimerGrb = setTimeout(() => {
+                    isHoldGrb = true;
+                    const items = allBinsDataGrb[currentBinIndexGrb]?.items || [];
+                    const target = (jumpTargetType === 'end') ? items.length : 0;
+                    changeStepGurobi(0, target);
+                }, 600);
+            };
+
+            const endEvent = () => {
+                clearTimeout(holdTimerGrb);
+                if (!isHoldGrb) changeStepGurobi(delta);
+                isHoldGrb = false;
+            };
+
+            el.addEventListener('mousedown', startEvent);
+            el.addEventListener('mouseup', endEvent);
+            el.addEventListener('mouseleave', () => clearTimeout(holdTimerGrb));
+            el.addEventListener('touchstart', startEvent, { passive: false });
+            el.addEventListener('touchend', endEvent);
+        }
+
+        function setupBinHoldEventGrb(el, delta, jumpTargetType) {
+            const startEvent = (e) => {
+                if (e.type === 'touchstart') e.preventDefault();
+                isBinHoldGrb = false;
+                binHoldTimerGrb = setTimeout(() => {
+                    isBinHoldGrb = true;
+                    const target = (jumpTargetType === 'end') ? (allBinsDataGrb.length - 1) : 0;
+                    changeBinGurobi(0, target);
+                }, 600);
+            };
+
+            const endEvent = () => {
+                clearTimeout(binHoldTimerGrb);
+                if (!isBinHoldGrb) changeBinGurobi(delta);
+                isBinHoldGrb = false;
+            };
+
+            el.addEventListener('mousedown', startEvent);
+            el.addEventListener('mouseup', endEvent);
+            el.addEventListener('mouseleave', () => clearTimeout(binHoldTimerGrb));
+            el.addEventListener('touchstart', startEvent, { passive: false });
+            el.addEventListener('touchend', endEvent);
+        }
+
+        if (btnNextGrb) setupHoldEventGrb(btnNextGrb, 1, 'end');
+        if (btnPrevGrb) setupHoldEventGrb(btnPrevGrb, -1, 'start');
+        if (btnBinNextGrb) setupBinHoldEventGrb(btnBinNextGrb, 1, 'end');
+        if (btnBinPrevGrb) setupBinHoldEventGrb(btnBinPrevGrb, -1, 'start');
+
+        function clearChartImage() {
+            const img = document.getElementById('chart-utilization-backend');
+            const placeholder = document.getElementById('chart-placeholder');
+            
+            if (img) {
+                img.src = "";
+                img.classList.add('hidden');
+            }
+            if (placeholder) {
+                placeholder.classList.remove('hidden');
+            }
+
+            if (typeof socket !== 'undefined' && socket.connected) {
+                socket.emit('delete_results_file'); 
+                console.log("Meminta server menghapus results.csv...");
+            } else {
+                console.error("Socket tidak terhubung, gagal menghapus file di server.");
+            }
+        }
+
     </script>
 </html>

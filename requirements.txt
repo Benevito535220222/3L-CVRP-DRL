@@ -10,6 +10,7 @@ asttokens @ file:///home/conda/feedstock_root/build_artifacts/asttokens_17332504
 async-timeout==5.0.1
 attrs==25.4.0
 beautifulsoup4==4.14.2
+bidict==0.23.1
 bleach==6.3.0
 blinker==1.9.0
 certifi==2025.11.12
@@ -27,18 +28,24 @@ cycler==0.12.1
 debugpy @ file:///D:/bld/bld/rattler-build_debugpy_1758162070/work
 decorator @ file:///home/conda/feedstock_root/build_artifacts/decorator_1740384970518/work
 defusedxml==0.7.1
+dnspython==2.8.0
+eventlet==0.41.0
 exceptiongroup @ file:///home/conda/feedstock_root/build_artifacts/exceptiongroup_1746947292760/work
 executing @ file:///home/conda/feedstock_root/build_artifacts/executing_1756729339227/work
 Farama-Notifications==0.0.4
 fastjsonschema==2.21.2
 filelock==3.19.1
 Flask==3.1.3
+Flask-SocketIO==5.6.1
 fonttools==4.60.1
 fqdn==1.5.1
 frozenlist==1.8.0
 fsspec==2025.9.0
+greenlet==3.5.0
 grpcio==1.76.0
+gurobipy==12.0.3
 gymnasium==1.2.2
+h11==0.16.0
 idna==3.11
 ImageIO==2.37.2
 importlib_metadata @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_importlib-metadata_1747934053/work
@@ -102,7 +109,9 @@ pycparser==2.23
 Pygments @ file:///home/conda/feedstock_root/build_artifacts/pygments_1750615794071/work
 pyparsing==3.2.5
 python-dateutil @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_python-dateutil_1751104122/work
+python-engineio==4.13.1
 python-json-logger==4.0.0
+python-socketio==5.16.1
 pytz==2025.2
 pyvista==0.46.4
 pywin32 @ file:///D:/bld/bld/rattler-build_pywin32_1756487147/work
@@ -121,6 +130,7 @@ scooby==0.11.0
 seaborn==0.13.2
 Send2Trash==1.8.3
 simpervisor==1.0.0
+simple-websocket==1.1.0
 six @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_six_1753199211/work
 sniffio==1.3.1
 soupsieve==2.8
@@ -155,6 +165,7 @@ websocket-client==1.9.0
 Werkzeug==3.1.3
 widgetsnbextension==4.0.15
 wslink==2.5.0
+wsproto==1.3.2
 xxhash==3.6.0
 yarl==1.22.0
 zipp @ file:///home/conda/feedstock_root/build_artifacts/zipp_1749421620841/work
