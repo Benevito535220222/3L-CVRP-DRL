@@ -141,9 +141,9 @@ tensorboard==2.20.0
 tensorboard-data-server==0.7.2
 terminado==0.18.1
 tinycss2==1.4.0
-torch==2.9.0+cu128
+torch==2.9.0
 torch-geometric==2.7.0
-torchvision==0.24.0+cu128
+torchvision==0.24.0
 tornado
 tqdm==4.67.1
 traitlets
