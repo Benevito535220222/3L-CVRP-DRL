@@ -103,6 +103,8 @@ def run_gurobi_background(temp_path, ds_name, size_str, total_distance_drl, drl_
 def gap_callback(model, where):
     eventlet.sleep(0) 
 
+    t_limit = 60
+
     if where == GRB.Callback.MIP:
         obj_best = model.cbGet(GRB.Callback.MIP_OBJBST)
         obj_bound = model.cbGet(GRB.Callback.MIP_OBJBND)
@@ -110,28 +112,33 @@ def gap_callback(model, where):
         
         model._actual_runtime = current_time 
 
-        if obj_best < model._last_obj - 1e-4:
+        if abs(obj_best - model._last_obj) > 1e-4:
             model._last_obj = obj_best
             model._last_time = current_time
+
+        if (current_time - model._last_time) > t_limit:
+            print(f"Terminating: Tidak ada perubahan dari Best Objective selama {t_limit} detik.")
+            model.terminate()
 
         now = time.time()
         if not hasattr(model, "_last_emit_time") or (now - model._last_emit_time > 2.0):
             try:
                 gap = 100.0
-                if abs(obj_best) < 1e10 and abs(obj_best) > 1e-10:
-                    gap = abs(obj_bound - obj_best) / abs(obj_best) * 100
+                if abs(obj_best) < 1e30: 
+                    if abs(obj_best) > 1e-10:
+                        gap = abs(obj_bound - obj_best) / abs(obj_best) * 100
+                    else:
+                        gap = abs(obj_bound - obj_best) * 100
                 
                 socketio.emit('gurobi_progress', {
-                    'obj': round(obj_best, 2) if obj_best < 1e10 else "Mencari...",
-                    'gap': round(gap, 2) if obj_best < 1e10 else 100,
+                    'obj': round(obj_best, 2) if abs(obj_best) < 1e30 else "Mencari...",
+                    'gap': round(gap, 2) if abs(obj_best) < 1e30 else 100,
                     'runtime': round(current_time, 1),
                     'no_improve': round(current_time - model._last_time, 1)
                 })
                 model._last_emit_time = now
-            except: pass
-
-        if (current_time - model._last_time) > 60:
-            model.terminate()
+            except Exception as e:
+                pass
 
 def solve_3l_cvrp(temp_file, depot_pos, bin_l, bin_w, bin_h):
     # ==========================================
@@ -184,7 +191,7 @@ def solve_3l_cvrp(temp_file, depot_pos, bin_l, bin_w, bin_h):
     total_threads = os.cpu_count() or 1
     
     model = gp.Model("3L-CVRP_Optimized")
-    model.setParam('MIPGap', CONFIG_GRB["gap"])
+    # model.setParam('MIPGap', CONFIG_GRB["gap"])
     model.setParam('Symmetry', 2)
     # model.setParam('Method', 2)
     grb_threads = max(1, total_threads - 0)
