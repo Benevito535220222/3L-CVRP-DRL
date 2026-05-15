@@ -696,7 +696,11 @@
         const btnPrevGrb = document.getElementById('btn-prev-grb');
         const btnBinNextGrb = document.getElementById('btn-bin-next-grb');
         const btnBinPrevGrb = document.getElementById('btn-bin-prev-grb');
-        
+
+        let mapTransformGrb = { x: 0, y: 0, scale: 1.0 };
+        let isDraggingGrb = false;
+        let lastMousePosGrb = { x: 0, y: 0 };
+        const canvasGrb = document.getElementById('vrpCanvas-grb');
 
         function initThree() {
             const container = document.getElementById('three-container');
@@ -705,6 +709,14 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x020617);
             
+            if (typeof cameraTarget !== 'undefined' && cameraTarget.set) {
+                cameraTarget.set(0, 0, 0);
+            } else {
+                cameraTarget = new THREE.Vector3(0, 0, 0);
+            }
+            targetRotationX = 0;
+            targetRotationY = 0;
+
             const aspect = container.clientWidth / container.clientHeight;
             camera = new THREE.PerspectiveCamera(45, aspect, 1, 500000);
             camera.position.set(600, 400, 600);
@@ -782,6 +794,7 @@
                 const newDist = newPos.distanceTo(cameraTarget);
                 if (newDist > minDistance && newDist < maxDistance) {
                     camera.position.copy(newPos);
+                    camera.lookAt(cameraTarget);
                 }
             }, { passive: false });
 
@@ -794,7 +807,7 @@
             });
             animate();
         }
-
+                
         function autoFitCamera(l, w, h) {
             const maxDim = Math.max(l, w, h);
             
@@ -880,11 +893,10 @@
             mesh.position.set(posX, posY, posZ);
 
             const edgeGeom = new THREE.EdgesGeometry(geometry);
-            const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 });
+            const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff});
             const wireframe = new THREE.LineSegments(edgeGeom, edgeMat);
             mesh.add(wireframe);
 
-            mesh.visible = true; 
             item_group.add(mesh);
         }
         
@@ -1212,7 +1224,7 @@
                 return (canvas.height - paddingY - offsetBottom) - scaledY;
             };
             
-            const depotPos = { x: getScreenX(0), y: getScreenY(0) };
+            const depotPos = { x: getScreenX(depotXInput), y: getScreenY(depotYInput) };
 
             if (dataToDraw.length > 0) {
                 const drawArrowhead = (ctx, fromX, fromY, toX, toY, color) => {
@@ -1485,21 +1497,47 @@
         });
 
         window.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            const dx = e.clientX - lastMousePos.x;
-            const dy = e.clientY - lastMousePos.y;
-            
-            mapTransform.x += dx;
-            mapTransform.y += dy;
-            lastMousePos = { x: e.clientX, y: e.clientY };
+            if (isDragging) {
+                const dx = e.clientX - lastMousePos.x;
+                const dy = e.clientY - lastMousePos.y;
+                
+                mapTransform.x += dx;
+                mapTransform.y += dy;
+                lastMousePos = { x: e.clientX, y: e.clientY };
 
-            if (window.lastProcessedItems) drawVRPMap(window.lastProcessedItems);
+                applyBounds();
+
+                if (window.lastProcessedItems) drawVRPMap(window.lastProcessedItems);
+            }
+
+            if (isDraggingGrb && canvasGrb) {
+                const dx = e.clientX - lastMousePosGrb.x;
+                const dy = e.clientY - lastMousePosGrb.y;
+                
+                mapTransformGrb.x += dx;
+                mapTransformGrb.y += dy;
+                lastMousePosGrb = { x: e.clientX, y: e.clientY };
+
+                applyBoundsGrb();
+
+                if (window.lastBinData) {
+                    drawVRPMapOnCanvas(window.lastBinData, canvasGrb);
+                }
+            }
         });
 
         window.addEventListener('mouseup', () => {
-            isDragging = false;
+            if (isDragging) {
+                isDragging = false;
+                if (canvas) canvas.style.cursor = 'default';
+            }
+            
+            if (isDraggingGrb) {
+                isDraggingGrb = false;
+                if (canvasGrb) canvasGrb.style.cursor = 'default';
+            }
         });
-
+        
         canvas.addEventListener('wheel', (e) => {
             e.preventDefault();
             const zoomSpeed = 0.001;
@@ -1840,9 +1878,12 @@
 
             createBinGurobi(l, w, h);
 
+            const colors = [0x3b82f6, 0x10b981, 0x8b5cf6, 0xf59e0b, 0xef4444];
             binData.items.forEach((item, index) => {
                 if (index < window.currentStepGrb) {
-                    addBoxToGurobiScene(item, 0x3b82f6);
+                    const selectedColor = colors[index % colors.length];
+                    
+                    addBoxToGurobiScene(item, selectedColor);
                 }
             });
 
@@ -1862,43 +1903,140 @@
                 
         function initThreeGurobi() {
             const container = document.getElementById('three-container-grb');
-            if (!container || rendererGrb) return;
+            if (!container) return;
+
+            const l = parseFloat(document.getElementById('bin-l')?.value) || 1000;
+            const w = parseFloat(document.getElementById('bin-w')?.value) || 1000;
+            const h = parseFloat(document.getElementById('bin-h')?.value) || 1000;
+            const maxDim = Math.max(l, w, h);
+            
+            const idealDistance = maxDim * 2;
+
+            if (rendererGrb) {
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                
+                cameraGrb.aspect = width / height;
+                cameraGrb.updateProjectionMatrix();
+                rendererGrb.setSize(width, height);
+                
+                cameraGrb.far = maxDim * 50;
+                cameraGrb.updateProjectionMatrix();
+                
+                return; 
+            }
 
             sceneGrb = new THREE.Scene();
             sceneGrb.background = new THREE.Color(0x020617);
             
-            cameraGrb = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 10000);
+            cameraTargetGrb = new THREE.Vector3(0, 0, 0);
+            targetRotationXGrb = 0;
+            targetRotationYGrb = 0;
+
+            const aspect = container.clientWidth / container.clientHeight;
             
-            rendererGrb = new THREE.WebGLRenderer({ antialias: true });
+            cameraGrb = new THREE.PerspectiveCamera(45, aspect, 1, maxDim * 50);
+            
+            cameraGrb.position.set(idealDistance, idealDistance * 0.7, idealDistance);
+            cameraGrb.lookAt(cameraTargetGrb);
+            
+            rendererGrb = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             rendererGrb.setSize(container.clientWidth, container.clientHeight);
+            rendererGrb.setPixelRatio(window.devicePixelRatio);
             container.appendChild(rendererGrb.domElement);
 
-            sceneGrb.add(new THREE.AmbientLight(0xffffff, 0.8)); 
+            sceneGrb.add(new THREE.AmbientLight(0xffffff, 0.5)); 
             const sunLight = new THREE.DirectionalLight(0xffffff, 0.5);
-            sunLight.position.set(1000, 1000, 1000);
+            sunLight.position.set(maxDim * 2, maxDim * 2, maxDim * 2);
             sceneGrb.add(sunLight);
 
             itemGroupGrb = new THREE.Group();
             sceneGrb.add(itemGroupGrb);
 
-            container.addEventListener('mousemove', (e) => {
-                if (isMouseDownGrb) {
-                    targetRotationYGrb += (e.clientX - mouseXGrb) * 0.01;
-                    targetRotationXGrb += (e.clientY - mouseYGrb) * 0.01;
-                    mouseXGrb = e.clientX;
-                    mouseYGrb = e.clientY;
-                }
-            });
+            container.addEventListener('contextmenu', (e) => e.preventDefault());
+
             container.addEventListener('mousedown', (e) => { 
-                isMouseDownGrb = true; 
+                if (e.button === 0) isMouseDownGrb = true;      
+                if (e.button === 2) isRightMouseDownGrb = true; 
                 mouseXGrb = e.clientX; 
                 mouseYGrb = e.clientY; 
             });
-            window.addEventListener('mouseup', () => isMouseDownGrb = false);
+
+            window.addEventListener('mouseup', () => {
+                isMouseDownGrb = false;
+                isRightMouseDownGrb = false;
+            });
+
+            container.addEventListener('mousemove', (e) => {
+                const deltaX = e.clientX - mouseXGrb;
+                const deltaY = e.clientY - mouseYGrb;
+
+                if (isMouseDownGrb) {
+                    targetRotationYGrb += deltaX * 0.01;
+                    targetRotationXGrb += deltaY * 0.01;
+                } 
+                else if (isRightMouseDownGrb) {
+                    const distance = cameraGrb.position.distanceTo(cameraTargetGrb);
+                    const panSpeed = distance * 0.0008;
+
+                    const vectorRight = new THREE.Vector3().setFromMatrixColumn(cameraGrb.matrix, 0);
+                    const vectorUp = new THREE.Vector3().setFromMatrixColumn(cameraGrb.matrix, 1);
+
+                    const moveX = vectorRight.multiplyScalar(-deltaX * panSpeed);
+                    const moveY = vectorUp.multiplyScalar(deltaY * panSpeed);
+
+                    cameraGrb.position.add(moveX).add(moveY);
+                    cameraTargetGrb.add(moveX).add(moveY);
+                }
+
+                mouseXGrb = e.clientX;
+                mouseYGrb = e.clientY;
+            });
+
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+
+                const minDistance = maxDim * 0.05;
+                const maxDistance = maxDim * 20;
+                const zoomSpeed = 0.1;
+
+                const factor = e.deltaY > 0 ? (1 + zoomSpeed) : (1 - zoomSpeed);
+                
+                const diff = cameraGrb.position.clone().sub(cameraTargetGrb);
+                const newPos = cameraTargetGrb.clone().add(diff.multiplyScalar(factor));
+                
+                const newDist = newPos.distanceTo(cameraTargetGrb);
+                if (newDist > minDistance && newDist < maxDistance) {
+                    cameraGrb.position.copy(newPos);
+                    cameraGrb.lookAt(cameraTargetGrb);
+                }
+            }, { passive: false });
+
+            window.addEventListener('resize', () => {
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                cameraGrb.aspect = width / height;
+                cameraGrb.updateProjectionMatrix();
+                rendererGrb.setSize(width, height);
+            });
 
             animateGurobi();
         }
-                
+        
+        function autoFitCameraGurobi(l, w, h) {
+            const maxDim = Math.max(l, w, h);
+            
+            const idealDist = maxDim * 2; 
+            
+            camera.position.set(idealDist, idealDist, idealDist);
+            camera.lookAt(0, 0, 0);
+            
+            if (typeof controls !== 'undefined') {
+                controls.target.set(0, 0, 0);
+                controls.update();
+            }
+        }
+
         function animateGurobi() {
             requestAnimationFrame(animateGurobi);
             if (itemGroupGrb && containerMeshGrb) {
@@ -1957,9 +2095,9 @@
             };
 
             ctx.save();
-            if (typeof mapTransform !== 'undefined') {
-                ctx.translate(mapTransform.x, mapTransform.y);
-                ctx.scale(mapTransform.scale, mapTransform.scale);
+            if (typeof mapTransformGrb !== 'undefined') {
+                ctx.translate(mapTransformGrb.x, mapTransformGrb.y);
+                ctx.scale(mapTransformGrb.scale, mapTransformGrb.scale);
             }
 
             const items = binData.items;
@@ -2153,9 +2291,7 @@
             const mesh = new THREE.Mesh(geometry, material);
 
             const posX = (parseFloat(item.y) + iW / 2) - (currentBinDimsGrb.w / 2);
-            
             const posY = (parseFloat(item.z) + iH / 2) - (currentBinDimsGrb.h / 2);
-            
             const posZ = (parseFloat(item.x) + iL / 2) - (currentBinDimsGrb.l / 2);
 
             mesh.position.set(posX, posY, posZ);
@@ -2166,12 +2302,6 @@
             itemGroupGrb.add(mesh);
         }
        
-        function autoFitCameraGurobi(l, w, h) {
-            const maxDim = Math.max(l, w, h);
-            cameraGrb.position.set(maxDim * 1.5, maxDim * 1.2, maxDim * 1.5);
-            cameraGrb.lookAt(0, 0, 0);
-        }
-
         function changeStepGurobi(delta, jumpTo = null) {
             const items = window.allBinsDataGrb[window.currentBinIndexGrb]?.items || [];
             if (items.length === 0) return;
@@ -2267,6 +2397,79 @@
             } else {
                 console.error("Socket tidak terhubung, gagal menghapus file di server.");
             }
+        }
+
+        function applyBoundsGrb() {
+            const canvasGrb = document.getElementById('vrpCanvas-grb');
+            if (!canvasGrb) return;
+
+            const margin = 300 * mapTransformGrb.scale; 
+            
+            if (mapTransformGrb.x > margin) mapTransformGrb.x = margin;
+            if (mapTransformGrb.x < -margin) mapTransformGrb.x = -margin;
+            
+            if (mapTransformGrb.y > margin) mapTransformGrb.y = margin;
+            if (mapTransformGrb.y < -margin) mapTransformGrb.y = -margin;
+        }
+
+        if (canvas) {
+            canvas.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                lastMousePos = { x: e.clientX, y: e.clientY };
+                canvas.style.cursor = 'grabbing';
+            });
+
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const zoomSpeed = 0.001;
+                const delta = -e.deltaY;
+                const oldScale = mapTransform.scale;
+                
+                const newScale = Math.min(Math.max(0.5, oldScale + delta * zoomSpeed), 5.0);
+                
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                mapTransform.x -= (mouseX - mapTransform.x) * (newScale / oldScale - 1);
+                mapTransform.y -= (mouseY - mapTransform.y) * (newScale / oldScale - 1);
+                mapTransform.scale = newScale;
+
+                applyBounds();
+
+                if (window.lastProcessedItems) drawVRPMap(window.lastProcessedItems);
+            }, { passive: false });
+        }
+
+        if (canvasGrb) {
+            canvasGrb.addEventListener('mousedown', (e) => {
+                isDraggingGrb = true;
+                lastMousePosGrb = { x: e.clientX, y: e.clientY };
+                canvasGrb.style.cursor = 'grabbing';
+            });
+
+            canvasGrb.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const zoomSpeed = 0.001;
+                const delta = -e.deltaY;
+                const oldScale = mapTransformGrb.scale;
+                
+                const newScale = Math.min(Math.max(0.5, oldScale + delta * zoomSpeed), 5.0);
+                
+                const rect = canvasGrb.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                mapTransformGrb.x -= (mouseX - mapTransformGrb.x) * (newScale / oldScale - 1);
+                mapTransformGrb.y -= (mouseY - mapTransformGrb.y) * (newScale / oldScale - 1);
+                mapTransformGrb.scale = newScale;
+
+                applyBoundsGrb();
+
+                if (window.lastBinData) {
+                    drawVRPMapOnCanvas(window.lastBinData, canvasGrb);
+                }
+            }, { passive: false });
         }
 
     </script>

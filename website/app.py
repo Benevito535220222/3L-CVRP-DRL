@@ -103,7 +103,7 @@ def run_gurobi_background(temp_path, ds_name, size_str, total_distance_drl, drl_
 def gap_callback(model, where):
     eventlet.sleep(0) 
 
-    t_limit = 60
+    t_limit = 10
 
     if where == GRB.Callback.MIP:
         obj_best = model.cbGet(GRB.Callback.MIP_OBJBST)
